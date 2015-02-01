@@ -2,8 +2,8 @@
 clear all,close all,clc
 
 debug = 0;
-debug_multipath = 1;
-debug_path_type = 103;
+debug_multipath = 0;
+debug_path_type = 101;
 SNR_IN = 20;
 
 %%参数定义
@@ -92,9 +92,9 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
       %%上一帧数据估计
       [sc_h1 sc_h2 sc_ha] = h_estimate_A(h_prev2, h_prev1, i, h_off_thresh);
       h_pn_conv = channel_pn_conv(PN,sc_h1,chan_len);
-      last_frame_data =  Send_data_srrc_tx1_ch((i-2)*Frame_len+1:(i-1)*Frame_len+chan_len);
-      
-      if debug 
+      last_frame_data =  Send_data_srrc_tx1_ch((i-2)*Frame_len+1:(i-1)*Frame_len);
+     
+      if debug || i== sim_num
           close all;
           figure;hold on;
           plot(abs(sc_h1),'r');
@@ -114,15 +114,16 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
           %pause;
       end
       
-      last_frame_data(1:length(h_pn_conv_prv))= last_frame_data(1:length(h_pn_conv_prv))-h_pn_conv_prv;
-      last_frame_data(Frame_len+(1:chan_len))= last_frame_data(Frame_len+(1:chan_len))-h_pn_conv(1:chan_len);
-      last_frame_ofdm_data = last_frame_data(PN_total_Len+1:end);
-      last_frame_ofdm_freq = fft(last_frame_ofdm_data, 32*1024);
-      last_frame_h_freq = fft(sc_ha, 32*1024);
+      last_frame_data_tail_head =  last_frame_data(PN_total_Len+1:end);
+      last_frame_pn_tail = h_pn_conv_prv(PN_total_Len+(1:chan_len));
+      last_frame_data_tail = Send_data_srrc_tx1_ch((i-1)*Frame_len+(1:chan_len))- h_pn_conv(1:chan_len);
+      last_frame_data_tail_head(1:chan_len) = last_frame_data_tail_head(1:chan_len)-last_frame_pn_tail+ last_frame_data_tail;
+      last_frame_ofdm_freq = fft(last_frame_data_tail_head);
+      last_frame_h_freq = fft(sc_ha,FFT_Len);
       
-      if debug 
+      if debug || i== sim_num
           figure;
-          fft_data_test = fft(last_frame_data(PN_total_Len+1:Frame_len));
+          fft_data_test = fft(last_frame_data_tail_head);
           plot(fft_data_test,'.');
           title('去除PN干扰后的结果');
           
@@ -138,16 +139,19 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
       fft_data = fft(last_frame_ofdm_eq_data);
       recover_data((i-2)*FFT_Len+1:(i-1)*FFT_Len)=  fft_data;
       
-      if debug
+      if debug || i== sim_num
           figure;
           plot(fft_data,'.b');
           title('均衡后的数据');
-          pause;
+          if debug
+             pause;
+          end
       end
       iter_num = 2;
       h_iter = sc_h1;
       last_frame_ofdm_eq_freq = fft(last_frame_ofdm_eq_data, 32*1024);
-      last_frame_ofdm_h =  last_frame_ofdm_eq_freq.* last_frame_h_freq;
+      last_frame_h_32k = fft(sc_ha,32*1024);
+      last_frame_ofdm_h =  last_frame_ofdm_eq_freq.* last_frame_h_32k;
       last_frame_ofdm_h_conv = ifft(last_frame_ofdm_h);
       last_frame_data_tail = last_frame_ofdm_h_conv(FFT_Len+1:FFT_Len+chan_len);
       current_frame_pn = Receive_data(1:PN_total_Len);
