@@ -88,9 +88,11 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
       plot(abs(sc_h1),'r');
       plot(abs(sc_h2),'b');
       
-      figure;
+      figure;hold on;
       plot(abs(h_pn_conv),'r');
+       plot(abs(h_pn_conv_prv),'b');
       title('PN与信道卷积的结果');
+      hold off;
      % pause;
       %%检测
       figure;
@@ -102,15 +104,21 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
       last_frame_data(1:length(h_pn_conv_prv))= last_frame_data(1:length(h_pn_conv_prv))-h_pn_conv_prv;
       last_frame_data(Frame_len+(1:chan_len))= last_frame_data(Frame_len+(1:chan_len))-h_pn_conv(1:chan_len);
       last_frame_ofdm_data = last_frame_data(PN_total_Len+1:end);
-      last_frame_ofdm_freq = fft(last_frame_ofdm_data, 32*1024);
       figure;
-      fft_data_test = fft(last_frame_ofdm_data(1:FFT_Len));
-      plot(last_frame_ofdm_freq,'.');
+      fft_data_test = fft(last_frame_data(PN_total_Len+1:Frame_len));
+      plot(fft_data_test,'.');
       title('去除PN干扰后的结果');
+      last_frame_ofdm_freq = fft(last_frame_ofdm_data, 32*1024);
+      
       %pause;
       last_frame_h_freq = fft(sc_ha, 32*1024);
+      figure;
+      plot(abs(last_frame_h_freq));
+      title('信道估计结果');
+      
       last_frame_ofdm_eq =  last_frame_ofdm_freq./last_frame_h_freq;
-      last_frame_ofdm_eq_data = ifft(last_frame_ofdm_eq(1:FFT_Len));
+      last_frame_ofdm_eq_data = ifft(last_frame_ofdm_eq);
+      last_frame_ofdm_eq_data =last_frame_ofdm_eq_data(1:FFT_Len);
       recover_data((i-2)*FFT_Len+1:(i-1)*FFT_Len)=  last_frame_ofdm_eq_data;
       
       figure;
@@ -118,10 +126,10 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
 %       plot(last_frame_ofdm_data,'.r');
 %        title('接收数据');
 %       subplot(1,2,2);
-      fft_data_eq = fft(last_frame_ofdm_eq_data);
-      plot(fft_data_eq,'ob');
+      fft_data_test1 = fft(last_frame_ofdm_eq_data);
+      plot(fft_data_test1,'ob');
       title('均衡后的数据');
-      %pause;
+      pause;
       
       iter_num = 2;
       h_iter = sc_h1;
