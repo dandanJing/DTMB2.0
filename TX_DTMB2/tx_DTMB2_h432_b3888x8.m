@@ -2,9 +2,10 @@
 clear all,close all,clc
 
 debug = 0;
-debug_multipath = 0;
-debug_path_type = 101;
-SNR_IN = 20;
+debug_multipath = 1;%定义是否考虑多径
+debug_path_type = 101;%定义多径类型
+SNR_IN = 20;%定义输入信噪比
+debug_frame_32k_eq = 1;%定义数据帧均衡长度，1为32K， 0为FFT_Len
 
 %%参数定义
 PN_len = 255;  % PN 长度
@@ -61,7 +62,7 @@ SNR_Old = estimate_SNR(Send_data_srrc_tx1_ch,Send_data_srrc_tx1_ch1)
 
 %%接收机
 chan_len = 260;%信道长度
-MAX_CHANNEL_LEN = PN_total_Len;
+MAX_CHANNEL_LEN =PN_total_Len;
 last_frame_tail = [0];
 stateSrrcReceive = [];
 h_prev1 = []; %前一帧信道估计
@@ -114,12 +115,20 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
           %pause;
       end
       
-      last_frame_data_tail_head =  last_frame_data(PN_total_Len+1:end);
-      last_frame_pn_tail = h_pn_conv_prv(PN_total_Len+(1:chan_len));
       last_frame_data_tail = Send_data_srrc_tx1_ch((i-1)*Frame_len+(1:chan_len))- h_pn_conv(1:chan_len);
-      last_frame_data_tail_head(1:chan_len) = last_frame_data_tail_head(1:chan_len)-last_frame_pn_tail+ last_frame_data_tail;
-      last_frame_ofdm_freq = fft(last_frame_data_tail_head);
-      last_frame_h_freq = fft(sc_ha,FFT_Len);
+      last_frame_pn_tail = h_pn_conv_prv(PN_total_Len+(1:chan_len));
+      
+      if debug_frame_32k_eq
+           last_frame_data_tail_head = [ last_frame_data(PN_total_Len+1:end),last_frame_data_tail ];
+           last_frame_data_tail_head(1:chan_len) = last_frame_data_tail_head(1:chan_len)-last_frame_pn_tail;
+           last_frame_ofdm_freq = fft(last_frame_data_tail_head, 32*1024);
+           last_frame_h_freq = fft(sc_ha,32*1024);
+      else
+           last_frame_data_tail_head =  last_frame_data(PN_total_Len+1:end);
+           last_frame_data_tail_head(1:chan_len) = last_frame_data_tail_head(1:chan_len)-last_frame_pn_tail+ last_frame_data_tail;
+           last_frame_ofdm_freq = fft(last_frame_data_tail_head);
+           last_frame_h_freq = fft(sc_ha,FFT_Len);
+      end
       
       if debug || i== sim_num
           figure;
@@ -133,11 +142,12 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
           title('信道估计结果');
       end
       
-      last_frame_ofdm_eq =  last_frame_ofdm_freq./last_frame_h_freq;
-      last_frame_ofdm_eq_data = ifft(last_frame_ofdm_eq);
-      last_frame_ofdm_eq_data =last_frame_ofdm_eq_data(1:FFT_Len);
-      fft_data = fft(last_frame_ofdm_eq_data);
-      recover_data((i-2)*FFT_Len+1:(i-1)*FFT_Len)=  fft_data;
+      
+     last_frame_ofdm_eq =  last_frame_ofdm_freq./last_frame_h_freq;
+     last_frame_ofdm_eq_data = ifft(last_frame_ofdm_eq);
+     last_frame_ofdm_eq_data =last_frame_ofdm_eq_data(1:FFT_Len);
+     fft_data = fft(last_frame_ofdm_eq_data);
+     recover_data((i-2)*FFT_Len+1:(i-1)*FFT_Len)=  fft_data;
       
       if debug || i== sim_num
           figure;
