@@ -13,4 +13,4 @@ end
 
 sc_h1 = h_pre1 + alpha*fc_dif;
 sc_h2 = h_pre1 + 2*alpha*fc_dif;
-sc_ha = h_pre1 + 1.5*alpha*fc_dif;
+sc_ha = h_pre1 + 0.5*alpha*fc_dif;

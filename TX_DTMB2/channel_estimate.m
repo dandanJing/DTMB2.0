@@ -12,6 +12,6 @@ H_F(abs(fft_PN)<freq_thres)=0;
 h_coarse = ifft(H_F);
 h_mmse_filter = channel_mmse_filter(h_coarse, mmse_weight);
 
-h_out = h_mmse_filter;
+h_out = h_mmse_filter.';
 
 

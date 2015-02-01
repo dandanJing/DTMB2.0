@@ -62,7 +62,7 @@ recover_data_pos = 1;
 start_pos = 1;
 h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
  for i=1:sim_num
-      Receive_data = Send_data_srrc_tx1_ch((i-1)*Frame_len*Srrc_oversample+1:i*Frame_len*Srrc_oversample);
+      Receive_data = Send_data_srrc_tx1_ch((i-1)*Frame_len+1:i*Frame_len);
       
       if(i < 3)  %前两帧进行信道估计，不迭代
           chan_in = Receive_data(1:PN_total_Len+chan_len);
@@ -75,97 +75,74 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
           continue;
       end
       
+%       close all;
+%       figure;
+%       plot(abs(Receive_data));
+%       title('当前帧数据幅度');
       close all;
-      figure;
-      plot(abs(Receive_data));
-      title('当前帧数据');
-      
       %%上一帧数据估计
       [sc_h1 sc_h2 sc_ha] = h_estimate_A(h_prev2, h_prev1, i, h_off_thresh);
       h_pn_conv = channel_pn_conv(PN,sc_h1,chan_len);
       last_frame_data =  Send_data_srrc_tx1_ch((i-2)*Frame_len+1:(i-1)*Frame_len+chan_len);
+      figure;hold on;
+      plot(abs(sc_h1),'r');
+      plot(abs(sc_h2),'b');
+      
+      figure;
+      plot(abs(h_pn_conv),'r');
+      title('PN与信道卷积的结果');
+     % pause;
+      %%检测
+      figure;
+      fft_data = fft(last_frame_data(PN_total_Len+1:Frame_len));
+      plot(fft_data,'.');
+      title('上一帧数据');
+      %pause;
+      
       last_frame_data(1:length(h_pn_conv_prv))= last_frame_data(1:length(h_pn_conv_prv))-h_pn_conv_prv;
       last_frame_data(Frame_len+(1:chan_len))= last_frame_data(Frame_len+(1:chan_len))-h_pn_conv(1:chan_len);
+      last_frame_ofdm_data = last_frame_data(PN_total_Len+1:end);
+      last_frame_ofdm_freq = fft(last_frame_ofdm_data, 32*1024);
+      figure;
+      fft_data_test = fft(last_frame_ofdm_data(1:FFT_Len));
+      plot(last_frame_ofdm_freq,'.');
+      title('去除PN干扰后的结果');
+      %pause;
+      last_frame_h_freq = fft(sc_ha, 32*1024);
+      last_frame_ofdm_eq =  last_frame_ofdm_freq./last_frame_h_freq;
+      last_frame_ofdm_eq_data = ifft(last_frame_ofdm_eq(1:FFT_Len));
+      recover_data((i-2)*FFT_Len+1:(i-1)*FFT_Len)=  last_frame_ofdm_eq_data;
+      
+      figure;
+%       subplot(1,2,1);
+%       plot(last_frame_ofdm_data,'.r');
+%        title('接收数据');
+%       subplot(1,2,2);
+      fft_data_eq = fft(last_frame_ofdm_eq_data);
+      plot(fft_data_eq,'ob');
+      title('均衡后的数据');
+      %pause;
       
       iter_num = 2;
+      h_iter = sc_h1;
+      last_frame_ofdm_eq_freq = fft(last_frame_ofdm_eq_data, 32*1024);
+      last_frame_ofdm_h =  last_frame_ofdm_eq_freq.* last_frame_h_freq;
+      last_frame_ofdm_h_conv = ifft(last_frame_ofdm_h);
+      last_frame_data_tail = last_frame_ofdm_h_conv(FFT_Len+1:FFT_Len+chan_len);
+      current_frame_pn = Receive_data(1:PN_total_Len);
+      current_frame_pn(1:chan_len)=current_frame_pn(1:chan_len)-last_frame_data_tail;
       for k = 1 : iter_num
-          %%op1 根据前两帧进行信道粗时域冲激响应估计
-          if(k==1)
-				
-			else
-				[sc_h2 sc_ha] = h_estimate_B(h_prev2, h_prev1, i, h_off_thresh);
-          end
-          
-          %%op2 减掉PN和拖尾
-          h_pn_conv = channel_pn_conv(PN,sc_h2,chan_len);
-          data_pn_rm = Receive_data;
-          data_pn_rm = data_pn_rm(1:length(h_pn_conv)) - h_pn_conv;
-          
-          %%op3计算数据头和拖尾
-         
+          h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
+          pn_recover = [current_frame_pn h_pn_conv(PN_total_Len+(1:chan_len))];
+          h_iter = channel_estimate(pn_recover,PN);
+%           pn_receive_freq = fft(pn_recover, 2048);
+%           pn_freq = fft(PN, 2048);
+%           pn_freq_eq = pn_receive_freq./pn_freq;
+%           h_time = ifft(pn_freq_eq);
       end
       
-      %%op1 
-      PN_R_time = Receive_data(1:2*PN_total_Len);
-      fft_PN_R = fft(PN_R_time);
-      fft_PN = fft(PN,2*PN_total_Len);
-      H_F =  fft_PN_R./fft_PN;
-      
-      %平滑滤波
-      freq_thres = 3.6;
-      mmse_weight = 0.99;
-      H_F(abs(fft_PN)<freq_thres)=0;
-      h_coarse = ifft(H_F);
-      h_mmse_filter = channel_mmse_filter(h_coarse, mmse_weight);
-      
-      id = 1;
-      if(id == 1)
-          figure;
-          plot(abs(h_coarse));
-          hold on;
-          plot(abs(h_mmse_filter),'r');
-          hold off;
-          pause;
-      end
-      
-      if(i == 1)
-          continue;
-      end
-      %%op2 粗均衡，获得信号时域
-      data_r = Receive_data(PN_total_Len+1:Frame_len);
-      fft_data = fft(data_r);
-      h = zeros(1,length(data_r));
-      h(1:length(h_mmse_filter)) = h_mmse_filter;
-      fft_channel = fft(h,length(data_r));
-      data_freq = fft_data./(fft_channel);
-      data_time_eq = ifft(data_freq);
-      
-      %%op3 PN重构,信道精估计
-      [Y I] = max(abs(h_coarse));
-      current_frame_data_head = conv(data_time_eq(1:PN_total_Len),h_coarse);
-      current_frame_data_head = current_frame_data_head(I:end);
-      current_frame_data_tail = conv(data_time_eq(length(data_r)-PN_total_Len+1:end),h_coarse);
-      channel_len = length(h_coarse);
-      PN_reshape = PN_R_time  ;
-      %去除当前帧数据
-      PN_reshape(PN_total_Len+1:2*PN_total_Len) = PN_reshape(PN_total_Len+1:2*PN_total_Len)-current_frame_data_head(1:PN_total_Len);
-      %去除上一帧拖尾
-      %PN_reshape(1:length(last_frame_tail)) = PN_reshape(1:length(last_frame_tail))-last_frame_tail;
-    
-      PN_receive_freq = fft(PN_reshape,2*PN_total_Len);
-      PN_freq_datalen = fft(PN,2*PN_total_Len);
-      channel_freq2 = PN_receive_freq./PN_freq_datalen;
-      channel_estimate_time = ifft(channel_freq2);
-      channel_estimate_freq = fft(channel_estimate_time,length(data_r));
-      
-      %%op4 数据循环重构
-      data_reshape = data_r;
-      data_reshape(1:PN_len)=data_reshape(1:PN_len)-PN_reshape(PN_len+1:2*PN_len)+current_frame_data_tail(PN_len+1:2*PN_len);
-      data_reshape_freq = fft(data_reshape);
-      data_estimate_freq = data_reshape_freq./channel_estimate_freq;
-      data_estimate_time = ifft(data_estimate_freq);
-      recover_data(start_pos:start_pos+length(data_estimate_time)-1) = data_estimate_time;
-      start_pos = start_pos +  length(data_estimate_time);
-      current_frame_data_tail = conv(data_estimate_time(length(data_estimate_time)-PN_total_Len+1:end),channel_estimate_time(1:2*PN_total_Len));
-      last_frame_tail = current_frame_data_tail(PN_total_Len+1:2*PN_total_Len);
+      h_prev2 = h_prev1;
+      h_prev1 = h_iter;
+	  h_pn_conv_prv = channel_pn_conv(PN,h_iter,chan_len);
+      chan_len = min(chan_len_estimate(h_iter),MAX_CHANNEL_LEN);
  end
