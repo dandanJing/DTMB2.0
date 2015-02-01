@@ -1,6 +1,8 @@
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48,64QAM
 clear all,close all,clc
 
+debug = 0;
+
 %%参数定义
 PN_len = 255;  % PN 长度
 PN_total_Len = 432; %帧头长度,前同步88，后同步89
@@ -14,7 +16,7 @@ Symbol_rate = 7.56e6; %符号速率
 Sampling_rate = Symbol_rate * Srrc_oversample;%采样速率
 QAM = 0;    %  0: 64QAM ,2:256APSK
 BitPerSym = 6;
-sim_num=100; %仿真的帧数
+sim_num=1000; %仿真的帧数
 
 %%帧头信号
 PN = PN_gen*1.975;
@@ -35,7 +37,7 @@ start_pos = 1;
 data_transfer = zeros(1,sim_num*FFT_Len);
 data_start_pos = 1;
 for i=1:sim_num
-    data_x = randint(1,FFT_Len*BitPerSym);
+    data_x = randi([0 1],1,FFT_Len*BitPerSym);
     modtemp1=map64q(data_x); %%星座映射
     modtemp= modtemp1*3888*20;
     temp_t1=ifft(modtemp, FFT_Len);
@@ -49,7 +51,7 @@ end
 
 Send_data_srrc_tx1 = data_aft_map_tx1;
 Send_data_srrc_tx1_ch = filter(channelFilter,1,Send_data_srrc_tx1);%过信道
-
+Send_data_srrc_tx1_ch = awgn(Send_data_srrc_tx1_ch,20,'measured');
 %%接收机
 chan_len = 260;%信道长度
 MAX_CHANNEL_LEN = PN_total_Len;
@@ -79,58 +81,62 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
 %       figure;
 %       plot(abs(Receive_data));
 %       title('当前帧数据幅度');
-      close all;
+     
       %%上一帧数据估计
       [sc_h1 sc_h2 sc_ha] = h_estimate_A(h_prev2, h_prev1, i, h_off_thresh);
       h_pn_conv = channel_pn_conv(PN,sc_h1,chan_len);
       last_frame_data =  Send_data_srrc_tx1_ch((i-2)*Frame_len+1:(i-1)*Frame_len+chan_len);
-      figure;hold on;
-      plot(abs(sc_h1),'r');
-      plot(abs(sc_h2),'b');
       
-      figure;hold on;
-      plot(abs(h_pn_conv),'r');
-       plot(abs(h_pn_conv_prv),'b');
-      title('PN与信道卷积的结果');
-      hold off;
-     % pause;
-      %%检测
-      figure;
-      fft_data = fft(last_frame_data(PN_total_Len+1:Frame_len));
-      plot(fft_data,'.');
-      title('上一帧数据');
-      %pause;
+      if debug 
+          close all;
+          figure;hold on;
+          plot(abs(sc_h1),'r');
+          plot(abs(sc_h2),'b');
+
+          figure;hold on;
+          plot(abs(h_pn_conv),'r');
+           plot(abs(h_pn_conv_prv),'b');
+          title('PN与信道卷积的结果');
+          hold off;
+         % pause;
+          %%检测
+          figure;
+          fft_data = fft(last_frame_data(PN_total_Len+1:Frame_len));
+          plot(fft_data,'.');
+          title('上一帧数据');
+          %pause;
+      end
       
       last_frame_data(1:length(h_pn_conv_prv))= last_frame_data(1:length(h_pn_conv_prv))-h_pn_conv_prv;
       last_frame_data(Frame_len+(1:chan_len))= last_frame_data(Frame_len+(1:chan_len))-h_pn_conv(1:chan_len);
       last_frame_ofdm_data = last_frame_data(PN_total_Len+1:end);
-      figure;
-      fft_data_test = fft(last_frame_data(PN_total_Len+1:Frame_len));
-      plot(fft_data_test,'.');
-      title('去除PN干扰后的结果');
       last_frame_ofdm_freq = fft(last_frame_ofdm_data, 32*1024);
-      
-      %pause;
       last_frame_h_freq = fft(sc_ha, 32*1024);
-      figure;
-      plot(abs(last_frame_h_freq));
-      title('信道估计结果');
+      
+      if debug 
+          figure;
+          fft_data_test = fft(last_frame_data(PN_total_Len+1:Frame_len));
+          plot(fft_data_test,'.');
+          title('去除PN干扰后的结果');
+          
+          %pause;
+          figure;
+          plot(abs(last_frame_h_freq));
+          title('信道估计结果');
+      end
       
       last_frame_ofdm_eq =  last_frame_ofdm_freq./last_frame_h_freq;
       last_frame_ofdm_eq_data = ifft(last_frame_ofdm_eq);
       last_frame_ofdm_eq_data =last_frame_ofdm_eq_data(1:FFT_Len);
-      recover_data((i-2)*FFT_Len+1:(i-1)*FFT_Len)=  last_frame_ofdm_eq_data;
+      fft_data = fft(last_frame_ofdm_eq_data);
+      recover_data((i-2)*FFT_Len+1:(i-1)*FFT_Len)=  fft_data;
       
-      figure;
-%       subplot(1,2,1);
-%       plot(last_frame_ofdm_data,'.r');
-%        title('接收数据');
-%       subplot(1,2,2);
-      fft_data_test1 = fft(last_frame_ofdm_eq_data);
-      plot(fft_data_test1,'ob');
-      title('均衡后的数据');
-      pause;
-      
+      if debug
+          figure;
+          plot(fft_data,'ob');
+          title('均衡后的数据');
+          pause;
+      end
       iter_num = 2;
       h_iter = sc_h1;
       last_frame_ofdm_eq_freq = fft(last_frame_ofdm_eq_data, 32*1024);
@@ -148,9 +154,11 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
 %           pn_freq_eq = pn_receive_freq./pn_freq;
 %           h_time = ifft(pn_freq_eq);
       end
-      
+      chan_len = min(chan_len_estimate(h_iter),MAX_CHANNEL_LEN);
       h_prev2 = h_prev1;
       h_prev1 = h_iter;
 	  h_pn_conv_prv = channel_pn_conv(PN,h_iter,chan_len);
-      chan_len = min(chan_len_estimate(h_iter),MAX_CHANNEL_LEN);
+      
  end
+ 
+ SNR = estimate_SNR(recover_data(9:FFT_Len+1:end),data_transfer(9:FFT_Len+1:end))
