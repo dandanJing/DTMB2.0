@@ -2,6 +2,9 @@
 clear all,close all,clc
 
 debug = 0;
+debug_multipath = 1;
+debug_path_type = 103;
+SNR_IN = 20;
 
 %%参数定义
 PN_len = 255;  % PN 长度
@@ -29,8 +32,10 @@ data_aft_map_tx1 = zeros(1,Frame_len*sim_num);
 max_delay = 10;
 doppler_freq = 0;
 isFading = 0;
-channelFilter = get_multipath_channel(101,isFading,max_delay,doppler_freq,Sampling_rate,Symbol_rate);
 channelFilter = 1;
+if debug_multipath
+    channelFilter = get_multipath_channel(debug_path_type,isFading,max_delay,doppler_freq,Sampling_rate,Symbol_rate);
+end
 
 %%data
 start_pos = 1;
@@ -50,8 +55,10 @@ for i=1:sim_num
 end
 
 Send_data_srrc_tx1 = data_aft_map_tx1;
-Send_data_srrc_tx1_ch = filter(channelFilter,1,Send_data_srrc_tx1);%过信道
-Send_data_srrc_tx1_ch = awgn(Send_data_srrc_tx1_ch,20,'measured');
+Send_data_srrc_tx1_ch1 = filter(channelFilter,1,Send_data_srrc_tx1);%过信道
+Send_data_srrc_tx1_ch = awgn(Send_data_srrc_tx1_ch1,SNR_IN,'measured');
+SNR_Old = estimate_SNR(Send_data_srrc_tx1_ch,Send_data_srrc_tx1_ch1)
+
 %%接收机
 chan_len = 260;%信道长度
 MAX_CHANNEL_LEN = PN_total_Len;
@@ -133,7 +140,7 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
       
       if debug
           figure;
-          plot(fft_data,'ob');
+          plot(fft_data,'.b');
           title('均衡后的数据');
           pause;
       end
