@@ -1,3 +1,4 @@
+%%channel estimation    
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48,64QAM
 clear all,close all,clc
 
@@ -76,7 +77,7 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
       
       if(i < 3)  %前两帧进行信道估计，不迭代
           chan_in = Receive_data(1:PN_total_Len+chan_len);
-          h_current = channel_estimate(chan_in, PN);
+          h_current = channel_estimate(chan_in, PN, 2048);
           h_pn_conv = channel_pn_conv(PN,h_current,chan_len);
           %保存状态
           h_prev2 = h_prev1;
@@ -169,7 +170,7 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
       for k = 1 : iter_num
           h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
           pn_recover = [current_frame_pn h_pn_conv(PN_total_Len+(1:chan_len))];
-          h_iter = channel_estimate(pn_recover,PN);
+          h_iter = channel_estimate(pn_recover,PN, 2048);
 %           pn_receive_freq = fft(pn_recover, 2048);
 %           pn_freq = fft(PN, 2048);
 %           pn_freq_eq = pn_receive_freq./pn_freq;
