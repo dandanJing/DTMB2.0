@@ -3,7 +3,7 @@
 clear all,close all,clc
 
 debug = 0;
-debug_multipath = 1;%定义是否考虑多径
+debug_multipath = 0;%定义是否考虑多径
 debug_path_type = 101;%定义多径类型
 SNR_IN = 20;%定义输入信噪比
 debug_frame_32k_eq = 1;%定义数据帧均衡长度，1为32K， 0为FFT_Len

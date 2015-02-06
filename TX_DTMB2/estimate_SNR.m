@@ -5,4 +5,4 @@ noise_ave = mean(noise);
 noise_power = sum((abs(noise-noise_ave)).^2)/len;
 source_ave = mean(data_source);
 source_power = sum(abs(data_source-source_ave).^2)/len;
-SNR_out =10*log( source_power / noise_power);
+SNR_out =10*log10( source_power / noise_power);

@@ -4,7 +4,7 @@ clear all,close all,clc
 
 debug = 0;
 debug_multipath = 0;%定义是否考虑多径
-debug_path_type = 101;%定义多径类型
+debug_path_type = 103;%定义多径类型
 SNR_IN = 20;%定义输入信噪比
 
 %%参数定义
@@ -69,6 +69,7 @@ recover_data = zeros(1,sim_num*(Frame_len-PN_total_len));
 recover_data_pos = 1;
 start_pos = 1;
 h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
+y_n_pre = zeros(1,chan_len);
  for i=1:sim_num-1
       Receive_data = Send_data_srrc_tx1_ch((i-1)*Frame_len+PN_total_len+(1:Frame_len));
       
@@ -78,11 +79,12 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
       
       close all;
       pn_prefix =  Send_data_srrc_tx1_ch((i-1)*Frame_len+(1:PN_total_len));
+      pn_prefix(1:chan_len) = pn_prefix(1:chan_len)-y_n_pre;
       z_n = zeros(1,2*PN_total_len);
       z_n(1:PN_total_len+chan_len)=[pn_prefix,Receive_data(1:chan_len)];
       iter_num = 2;
       h_iter = 0;
-      alpha = 0.5;
+      alpha = 0.2;
       for k = 1:iter_num
           %%op1 channel estimate
           h_temp = channel_estimate(z_n, PN, 2*PN_total_len);
@@ -92,7 +94,7 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
               h_iter = alpha*h_iter+(1-alpha)*h_temp;
           end
           
-          if debug || i== sim_num-1
+          if debug || (i== sim_num-1 && k == iter_num)
             figure;hold on;
             plot(abs(h_iter),'r');
             plot(abs(h_temp),'b');
@@ -104,7 +106,7 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
           frame_freq = fft( Receive_data,Frame_len);
           h_freq = fft(h_iter,Frame_len);
           frame_eq = ifft(frame_freq./h_freq);
-          if debug || i== sim_num-1
+          if debug || (i== sim_num-1 && k == iter_num)
               figure;
               plot(abs(h_freq));
               title('信道频域响应');
@@ -116,11 +118,13 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
          h_freq = fft(h_iter, Frame_len);
          y_n = ifft( frame_ofdm_freq.*h_freq);
          frame_recover_data =  fft(frame_ofdm_data, FFT_len);
-         if debug || i== sim_num-1
+         if debug || (i== sim_num-1 && k == iter_num)
             figure;
             plot(frame_recover_data,'.');
             title('数据均衡结果');
-            pause;
+            if debug
+                pause;
+            end
          end
          
          z_n = zeros(1,2*PN_total_len);
@@ -129,6 +133,7 @@ h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
       end
        recover_data((i-1)*FFT_len+1:(i)*FFT_len)=  frame_recover_data;
        chan_len = min(chan_len_estimate(h_iter),MAX_CHANNEL_LEN);
+       y_n_pre = y_n(FFT_len+(1:chan_len));
  end
  
  SNR = estimate_SNR(recover_data(9:FFT_len+1:end-FFT_len),data_transfer(9:FFT_len+1:end-FFT_len))
