@@ -2,9 +2,9 @@
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48,64QAM
 clear all,close all,clc
 
-debug = 0;
-debug_multipath = 0;%定义是否考虑多径
-debug_path_type = 103;%定义多径类型
+debug = 1;
+debug_multipath = 1;%定义是否考虑多径
+debug_path_type = 102;%定义多径类型
 SNR_IN = 20;%定义输入信噪比
 
 %%参数定义
@@ -77,7 +77,7 @@ stateSrrcReceive = [];
 recover_data = zeros(1,sim_num*(Frame_len-PN_total_len));
 recover_data_pos = 1;
 start_pos = 1;
-h_off_thresh = 0.2; %根据前两帧信道估计当前帧时设置的阈值
+h_off_thresh = 0.1; %根据前两帧信道估计当前帧时设置的阈值
 y_n_pre = zeros(1,chan_len);
 channel_estimate_1 = zeros(sim_num,MAX_CHANNEL_LEN);
 channel_estimate_2 = zeros(sim_num,MAX_CHANNEL_LEN);
@@ -121,7 +121,7 @@ channel_estimate_2 = zeros(sim_num,MAX_CHANNEL_LEN);
           frame_freq = fft( Receive_data,Frame_len);
           h_freq = fft(h_iter,Frame_len);
           frame_freq_eq = frame_freq./h_freq;
-          frame_freq_eq(abs(h_freq)<h_off_thresh) = 0;
+          frame_freq_eq(abs(h_freq)<h_off_thresh) =  0;
           frame_eq = ifft(frame_freq_eq);
           if debug || (i== sim_num-1 && k == iter_num)
               figure;
@@ -167,10 +167,15 @@ channel_estimate_2 = zeros(sim_num,MAX_CHANNEL_LEN);
  
   figure;
  subplot(1,2,1);
- plot(abs(channel_estimate_1(sim_num,:)));
+ plot(abs(channel_estimate_1(sim_num-5,:)));
+ title('单PN估计结果示意');
  subplot(1,2,2);
- plot(abs(channel_estimate_2(sim_num,:)),'r');
- 
+ plot(abs(channel_estimate_2(sim_num-5,:)),'r');
+ title('双PN估计结果示意');
+ figure;
+ pn_freq = fft(channel_estimate_2(sim_num-5,:),Frame_len);
+ plot(abs(pn_freq));
+  
  SNR = estimate_SNR(recover_data(9:FFT_len+1:end-FFT_len),data_transfer(9:FFT_len+1:end-FFT_len))
  
  kk = 1;

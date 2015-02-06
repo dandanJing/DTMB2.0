@@ -2,9 +2,9 @@
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48,64QAM
 clear all,close all,clc
 
-debug = 1;
-debug_multipath = 0;%定义是否考虑多径
-debug_path_type = 103;%定义多径类型
+debug = 0;
+debug_multipath = 1;%定义是否考虑多径
+debug_path_type = 102;%定义多径类型
 SNR_IN = 20;%定义输入信噪比
 
 %%参数定义
@@ -108,17 +108,21 @@ channel_estimate_2 = zeros(sim_num,MAX_CHANNEL_LEN);
           
           if debug || (i== sim_num-1 && k == iter_num)
             figure;
-            s
+            subplot(1,2,1);
             plot(abs(h_iter),'r');
+            title('迭代估计结果');
+            subplot(1,2,2);
             plot(abs(h_temp),'b');
-            legend('迭代估计结果','当前估计结果');
+           title('当前估计结果');
             hold off;
           end
           
           %%op2 data equalization
           frame_freq = fft( Receive_data,Frame_len);
           h_freq = fft(h_iter,Frame_len);
-          frame_eq = ifft(frame_freq./h_freq);
+          frame_freq_eq = frame_freq./h_freq;
+          frame_freq_eq(abs(h_freq)<h_off_thresh) = 0;
+          frame_eq = ifft(frame_freq_eq);
           if debug || (i== sim_num-1 && k == iter_num)
               figure;
               plot(abs(h_freq));
@@ -163,18 +167,23 @@ channel_estimate_2 = zeros(sim_num,MAX_CHANNEL_LEN);
  
   figure;
  subplot(1,2,1);
- plot(abs(channel_estimate_1(sim_num,:)));
+ plot(abs(channel_estimate_1(sim_num-5,:)));
+ title('单PN估计结果示意');
  subplot(1,2,2);
- plot(abs(channel_estimate_2(sim_num,:)),'r');
- 
+ plot(abs(channel_estimate_2(sim_num-5,:)),'r');
+ title('双PN估计结果示意');
+ figure;
+ pn_freq = fft(channel_estimate_2(sim_num-5,:),Frame_len);
+ plot(abs(pn_freq));
+  
  SNR = estimate_SNR(recover_data(9:FFT_len+1:end-FFT_len),data_transfer(9:FFT_len+1:end-FFT_len))
  
-%  kk = 1;
-%  num = sim_num-14;
-%  for i = 9+(1:num)
-%      channel_off =  channel_estimate_1(i,:)- channel_estimate_2(i,:);
-%      channel_SNR(kk) = var(channel_estimate_2(i,:))/var(channel_off);
-%      kk = kk + 1;
-%  end
-%  chan_off_SNR = 10*log10(mean(channel_SNR))
+ kk = 1;
+ num = sim_num-14;
+ for i = 9+(1:num)
+     channel_off =  channel_estimate_1(i,:)- channel_estimate_2(i,:);
+     channel_SNR(kk) = var(channel_estimate_2(i,:))/var(channel_off);
+     kk = kk + 1;
+ end
+ chan_off_SNR = 10*log10(mean(channel_SNR))
  
