@@ -1,10 +1,10 @@
-%%iterative channel estimation    
+%%iterative channel estimation   
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48,64QAM
 clear all,close all,clc
 
 debug = 0;
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 2;%定义多径类型
+debug_path_type = 1;%定义多径类型
 SNR = [20];
 for SNR_IN = SNR  %定义输入信噪比
 
@@ -46,6 +46,7 @@ end
 %%TPS
 tps_len = 38*8;
 tps_symbol = zeros(1,38*8);
+
 tps_position =[];
 d = 1; %离散导频为2d+1
 discret_num = 88;
@@ -57,7 +58,9 @@ for kk = 1:discret_num
     temp = continu_tps_length+(kk-1)*(total_block_len)+ofdm_block_len+(1:2*d+1);
     tps_position = [tps_position temp];
 end
- tps_position = [tps_position 3888*8-continu_tps_length+1:3888*8];
+ tps_position = [tps_position FFT_len-continu_tps_length+1:FFT_len];
+ 
+ tps_position = [1:tps_len/2 FFT_len-tps_len/2+1:FFT_len];
  tps_data = randi([0 1],1,tps_len*BitPerSym);
  modtemp1=map64q(tps_data); %%星座映射
  tps_symbol= modtemp1*3888*20;

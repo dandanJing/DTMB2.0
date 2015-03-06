@@ -44,13 +44,14 @@ if debug_multipath
 end
 
 %%TPS
-tps_length = 38*8;
+tps_len = 38*8;
 tps_symbol = zeros(1,38*8);
+
 tps_position =[];
 d = 1; %ÀëÉ¢µ¼ÆµÎª2d+1
 discret_num = 88;
 continu_tps_length = (38*8-(2*d+1)*discret_num)/2;
-ofdm_block_len = (FFT_len)/discret_num;
+ofdm_block_len = (FFT_len-tps_len)/discret_num;
 total_block_len = ofdm_block_len+(2*d+1);
 tps_position = [1:continu_tps_length];
 for kk = 1:discret_num
@@ -58,8 +59,12 @@ for kk = 1:discret_num
     tps_position = [tps_position temp];
 end
  tps_position = [tps_position 3888*8-continu_tps_length+1:3888*8];
- tps_data = randi([0 1],1,FFT_len*BitPerSym);
-  
+ 
+ tps_position = [1:tps_len/2 ];
+ tps_data = randi([0 1],1,tps_len*BitPerSym);
+ modtemp1=map64q(tps_data); %%ÐÇ×ùÓ³Éä
+ tps_symbol= modtemp1*3888*20;
+
 %  tps_symbol(tps_position) = 1;
 %  plot(tps_symbol(1:1000));
 %  set(gca,'YLim',[0 3]);
@@ -73,6 +78,7 @@ for i=1:sim_num
     data_x = randi([0 1],1,FFT_len*BitPerSym);
     modtemp1=map64q(data_x); %%ÐÇ×ùÓ³Éä
     modtemp= modtemp1*3888*20;
+    modtemp(tps_position)= tps_symbol;
     temp_t1=ifft(modtemp, FFT_len);
     data_transfer(data_start_pos:data_start_pos+FFT_len-1)=modtemp;
     data_start_pos = data_start_pos + FFT_len;
@@ -99,6 +105,6 @@ matfilename = strcat('DTMB_data_awgn_SNR',num2str(SNR_IN),'.mat');
 if debug_multipath
     matfilename = strcat('DTMB_data_multipath_new',num2str(debug_path_type),'SNR',num2str(SNR_IN),'.mat');
 end
-save(matfilename,'Send_data_srrc_tx1_ch','Send_data_srrc_tx1_ch2','data_transfer')
+save(matfilename,'Send_data_srrc_tx1_ch','Send_data_srrc_tx1_ch2','data_transfer','tps_position','tps_symbol')
 
 end
