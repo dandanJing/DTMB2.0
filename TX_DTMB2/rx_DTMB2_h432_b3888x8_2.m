@@ -56,7 +56,11 @@ h_prev2 = [];  %前两帧信道估计
 recover_data = zeros(1,sim_num*(Frame_len-PN_total_len));
 recover_data_pos = 1;
 start_pos = 1;
+debug_h_ave = 1;
 h_off_thresh = 0.02; %根据前两帧信道估计当前帧时设置的阈值
+h_average = 0; %信道估计的平均结果
+h_ave_alpha = 0.5;
+h_start_ave_frame = 9;
 channel_estimate_spn = zeros(sim_num,PN_total_len);
 channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
 
@@ -67,7 +71,7 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
       
       if(i < 3)  %前两帧进行信道估计，不迭代
           chan_in = Receive_data(1:PN_total_len+chan_len);
-          h_current = channel_estimate(chan_in, PN, 2048, 0.1);
+          h_current = channel_estimate(chan_in, PN, 2048, 0.1,debug);
           h_pn_conv = channel_pn_conv(PN,h_current,chan_len);
           %保存状态
           h_prev2 = h_prev1;
@@ -104,15 +108,6 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
          channel_temp = channel_estimate_spn(i-1,:);
          channel_freq = fft(channel_temp, FFT_len);
          channel_freq(tps_position)= fft_data(tps_position)./tps_symbol;
-         channel_modify = ifft(channel_freq);
-         channel_modify = channel_modify(1:length(channel_temp));
-         figure;
-         subplot(1,2,1);
-         plot(abs(channel_temp));
-         title('无修正时的信道估计');
-          subplot(1,2,2);
-         plot(abs(channel_modify));
-         title('修正后的信道估计');
          fft_data(tps_position)=tps_symbol;
      end
      recover_data((i-2)*FFT_len+1:(i-1)*FFT_len)=  fft_data;
@@ -133,7 +128,7 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
       current_frame_pn(1:chan_len)=current_frame_pn(1:chan_len)-last_frame_data_tail;
       for k = 1 : iter_num
           if k==1
-            channel_estimate_thresh = 0.1;
+            channel_estimate_thresh = 0.06;
           elseif k==2
             channel_estimate_thresh = 0.05;
           else
@@ -144,7 +139,11 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
           end
           h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
           pn_recover = [current_frame_pn h_pn_conv(PN_total_len+(1:chan_len))];
-          h_iter = channel_estimate(pn_recover,PN, 2048,channel_estimate_thresh);
+          if k==1
+            h_iter = channel_estimate(pn_recover,PN, 2048,channel_estimate_thresh,debug);
+          else
+            h_iter = channel_estimate_A(pn_recover,PN, 2048,debug);
+          end
       end
       
       h_iter_old = sc_h1;
@@ -152,9 +151,9 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
       h_iter_old = h_iter;
       h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
       pn_recover = [current_frame_pn h_pn_conv(PN_total_len+(1:chan_len))];
-      h_iter = channel_estimate_A(pn_recover,PN, 2048);
+      h_iter = channel_estimate_A(pn_recover,PN, 2048,debug);
           
-      if debug || i== sim_num
+      if debug
       figure;
       subplot(1,2,1);
       plot(abs(h_iter_old(1:PN_total_len)),'r');

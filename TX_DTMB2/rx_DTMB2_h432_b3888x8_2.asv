@@ -57,6 +57,9 @@ recover_data = zeros(1,sim_num*(Frame_len-PN_total_len));
 recover_data_pos = 1;
 start_pos = 1;
 h_off_thresh = 0.02; %根据前两帧信道估计当前帧时设置的阈值
+h_average = 0; %信道估计的平均结果
+h_ave_alpha = 0.8;
+h_start_ave_frame = 9;
 channel_estimate_spn = zeros(sim_num,PN_total_len);
 channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
 
@@ -113,6 +116,7 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
           subplot(1,2,2);
          plot(abs(channel_modify));
          title('修正后的信道估计');
+         
          fft_data(tps_position)=tps_symbol;
      end
      recover_data((i-2)*FFT_len+1:(i-1)*FFT_len)=  fft_data;
@@ -154,7 +158,7 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
       pn_recover = [current_frame_pn h_pn_conv(PN_total_len+(1:chan_len))];
       h_iter = channel_estimate_A(pn_recover,PN, 2048);
           
-      if debug || i== sim_num
+      if debug
       figure;
       subplot(1,2,1);
       plot(abs(h_iter_old(1:PN_total_len)),'r');
@@ -208,6 +212,8 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
       channel_estimate_dpn(i,1:chan_len_test)=dpn_h_time(1:chan_len_test);
  end
  
+ %%估计误差
+ num = sim_num-9;
  mean_pos = 9+(1:num);
  dpn_channel_mean = mean(channel_estimate_dpn(mean_pos,:));
  dpn_mean_off = dpn_channel_mean -  channel_real;
@@ -240,9 +246,9 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
 end
 
 figure;
-subplot(1,3,1)
+subplot(1,2,1)
 semilogy(SNR,spn_mean_mse,'r*-');
 title('单PN估计MSE');
-subplot(1,2,3)
+subplot(1,2,2)
 semilogy(SNR,dpn_mean_mse,'k^-');
 title('双PN信道平均估计MSE');
