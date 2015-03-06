@@ -5,7 +5,7 @@
 clear all,close all,clc
 debug = 0;
 debug_tps = 1;
-SNR = [20];
+SNR = [10:5:30];
 
 spn_mean_mse = zeros(1,length(SNR));
 dpn_mean_mse = zeros(1,length(SNR));
@@ -103,14 +103,6 @@ channel_estimate_temp =  zeros(sim_num,MAX_CHANNEL_LEN);
            last_frame_ofdm_freq = fft(last_frame_data_tail_head);
            last_frame_h_freq = fft(sc_ha,FFT_len);
       end
-      
-     if debug || i== sim_num
-         temp_data = last_frame_data(PN_total_len+1:end);
-         temp_data(1:chan_len) = temp_data(1:chan_len)-last_frame_pn_tail+ last_frame_data_tail;
-          figure;
-          plot(fft(temp_data),'.b');
-          title('无均衡的数据');
-     end
        
      last_frame_ofdm_eq =  last_frame_ofdm_freq./last_frame_h_freq;
      last_frame_ofdm_eq_data = ifft(last_frame_ofdm_eq);
@@ -251,7 +243,7 @@ channel_estimate_temp =  zeros(sim_num,MAX_CHANNEL_LEN);
 
  temp_mean = mean(channel_estimate_temp(mean_pos,:));
  temp_off = temp_mean -  channel_real;
- temp_mse =  norm(temp_off)/norm(channel_real);
+ temp_mse(mse_pos) =  norm(temp_off)/norm(channel_real);
  
  if debug || i== sim_num-1 
         figure;
@@ -284,7 +276,7 @@ end
 
 figure;
 subplot(1,3,1)
-semilogy(SNR,spn_mean_mse,'r*-');
+semilogy(SNR(2:end),spn_mean_mse(2:end),'r*-');
 title('单PN估计MSE');
 subplot(1,3,2)
 semilogy(SNR,dpn_mean_mse,'k^-');
