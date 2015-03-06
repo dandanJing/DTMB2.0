@@ -56,14 +56,18 @@ h_prev2 = [];  %前两帧信道估计
 recover_data = zeros(1,sim_num*(Frame_len-PN_total_len));
 recover_data_pos = 1;
 start_pos = 1;
-debug_h_ave = 1;
 h_off_thresh = 0.02; %根据前两帧信道估计当前帧时设置的阈值
-h_average = 0; %信道估计的平均结果
-h_ave_alpha = 0.5;
-h_start_ave_frame = 9;
-channel_estimate_spn = zeros(sim_num,PN_total_len);
-channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
 
+debug_h_ave = 1;%判断是否对信道平滑
+h_average = zeros(1,2048); %信道估计的平均结果
+h_ave_alpha = 0.95;
+h_start_ave_frame = 15;
+h_start_iter_frame = 105;
+h_average_thresh = 0.005;
+
+channel_estimate_spn = zeros(sim_num,MAX_CHANNEL_LEN);
+channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
+channel_estimate_temp =  zeros(sim_num,MAX_CHANNEL_LEN);
 %%单PN信道估计
  for i=1:sim_num
       close all;
@@ -100,6 +104,14 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
            last_frame_h_freq = fft(sc_ha,FFT_len);
       end
       
+     if debug || i== sim_num
+         temp_data = last_frame_data(PN_total_len+1:end);
+         temp_data(1:chan_len) = temp_data(1:chan_len)-last_frame_pn_tail+ last_frame_data_tail;
+          figure;
+          plot(fft(temp_data),'.b');
+          title('无均衡的数据');
+     end
+       
      last_frame_ofdm_eq =  last_frame_ofdm_freq./last_frame_h_freq;
      last_frame_ofdm_eq_data = ifft(last_frame_ofdm_eq);
      last_frame_ofdm_eq_data =last_frame_ofdm_eq_data(1:FFT_len);
@@ -137,12 +149,13 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
                 channel_estimate_thresh = 0.01;
             end
           end
+          
           h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
           pn_recover = [current_frame_pn h_pn_conv(PN_total_len+(1:chan_len))];
           if k==1
-            h_iter = channel_estimate(pn_recover,PN, 2048,channel_estimate_thresh,debug);
+              h_iter = channel_estimate(pn_recover,PN, 2048,channel_estimate_thresh,debug);
           else
-            h_iter = channel_estimate_A(pn_recover,PN, 2048,debug);
+              h_iter = channel_estimate_A(pn_recover,PN, 2048,debug);
           end
       end
       
@@ -152,7 +165,25 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
       h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
       pn_recover = [current_frame_pn h_pn_conv(PN_total_len+(1:chan_len))];
       h_iter = channel_estimate_A(pn_recover,PN, 2048,debug);
-          
+      
+      if debug_h_ave && i > h_start_ave_frame 
+            h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
+            pn_recover = [current_frame_pn h_pn_conv(PN_total_len+(1:chan_len))];
+            h_temp = channel_estimate_B(pn_recover,PN, 2048,debug);
+            channel_estimate_temp(i,:) = h_temp(1:PN_total_len);
+            if i == h_start_iter_frame
+                h_average(1:PN_total_len) = mean(channel_estimate_temp(h_start_ave_frame+1:h_start_iter_frame,:));
+                h_average = channel_denoise(h_average,h_average_thresh);
+                h_iter = h_average;
+            elseif i > h_start_iter_frame
+                h_temp_1 = h_temp;
+                h_temp_1(PN_total_len+1:end)=0;
+                h_iter = h_ave_alpha*h_average+(1-h_ave_alpha)*h_temp_1;
+                h_iter = channel_denoise(h_iter,h_average_thresh);
+                h_average = h_iter;
+            end
+      end
+      
       if debug
       figure;
       subplot(1,2,1);
@@ -209,7 +240,7 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
  
  %%估计误差
  num = sim_num-9;
- mean_pos = 9+(1:num);
+ mean_pos = h_start_ave_frame+1:num;
  dpn_channel_mean = mean(channel_estimate_dpn(mean_pos,:));
  dpn_mean_off = dpn_channel_mean -  channel_real;
  dpn_mean_mse(mse_pos) = norm(dpn_mean_off)/norm(channel_real);
@@ -218,6 +249,10 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
  spn_mean_off = spn_channel_mean -  channel_real;
  spn_mean_mse(mse_pos) = norm(spn_mean_off)/norm(channel_real);
 
+ temp_mean = mean(channel_estimate_temp(mean_pos,:));
+ temp_off = temp_mean -  channel_real;
+ temp_mse =  norm(temp_off)/norm(channel_real);
+ 
  if debug || i== sim_num-1 
         figure;
         subplot(1,2,1);
@@ -233,6 +268,13 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
         subplot(1,2,2);
         plot(abs(spn_channel_mean));
         title('单PN信道平均估计结果');
+        figure;
+        subplot(1,2,1);
+        plot(abs(channel_real));
+        title('真实多径信道');
+        subplot(1,2,2);
+        plot(abs(temp_mean));
+        title('temp平均估计结果');
         if debug
             pause;
         end
@@ -241,9 +283,12 @@ channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
 end
 
 figure;
-subplot(1,2,1)
+subplot(1,3,1)
 semilogy(SNR,spn_mean_mse,'r*-');
 title('单PN估计MSE');
-subplot(1,2,2)
+subplot(1,3,2)
 semilogy(SNR,dpn_mean_mse,'k^-');
 title('双PN信道平均估计MSE');
+subplot(1,3,3)
+semilogy(SNR,temp_mse,'k^-');
+title('temp信道平均估计MSE');
