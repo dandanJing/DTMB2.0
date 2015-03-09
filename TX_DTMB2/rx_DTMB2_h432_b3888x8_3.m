@@ -140,7 +140,7 @@ channel_estimate_temp =  zeros(sim_num,MAX_CHANNEL_LEN);
                         h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
                         pn_recover = [current_frame_pn h_pn_conv(PN_total_len+(1:chan_len))];
                         h_temp = channel_estimate_B(pn_recover,PN, 2048,debug);
-                        chan_len = min(chan_len_estimate(h_temp)+10,MAX_CHANNEL_LEN);
+                        chan_len = min(chan_len_estimate(h_temp),MAX_CHANNEL_LEN);
                         h_temp(chan_len+1:end)=0;
                         channel_estimate_temp(i,:) = h_temp(1:PN_total_len);
                     end
@@ -148,7 +148,7 @@ channel_estimate_temp =  zeros(sim_num,MAX_CHANNEL_LEN);
                     h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
                     pn_recover = [current_frame_pn h_pn_conv(PN_total_len+(1:chan_len))];
                     h_temp = channel_estimate_B(pn_recover,PN, 2048,debug);
-                    chan_len = min(chan_len_estimate(h_temp)+10,MAX_CHANNEL_LEN);
+                    chan_len = min(chan_len_estimate(h_temp),MAX_CHANNEL_LEN);
                     h_temp(chan_len+1:end)=0;
                     channel_estimate_temp(i,:) = h_temp(1:PN_total_len);
                     h_iter(1:PN_total_len) = mean(channel_estimate_temp(h_start_ave_frame+1:i,:));
@@ -191,7 +191,7 @@ channel_estimate_temp =  zeros(sim_num,MAX_CHANNEL_LEN);
         end
       end
       
-      chan_len = min(chan_len_estimate(h_iter)+10,MAX_CHANNEL_LEN);
+      chan_len = min(chan_len_estimate(h_iter),MAX_CHANNEL_LEN);
       h_iter(chan_len+1:end)=0;
       h_prev2 = h_prev1;
       h_prev1 = h_iter;
