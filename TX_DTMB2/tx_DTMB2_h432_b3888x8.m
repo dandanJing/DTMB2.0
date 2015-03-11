@@ -5,7 +5,7 @@ clear all,close all,clc
 debug = 0;
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 1;%定义多径类型
-SNR = [10:5:30];
+SNR = [10:5:40];
 for SNR_IN = SNR  %定义输入信噪比
 
 %%参数定义
@@ -93,18 +93,18 @@ for i=1:sim_num
 end
 
 Send_data_srrc_tx1 = data_aft_map_tx1;
-Send_data_srrc_tx1_ch1 = filter(channelFilter,1,Send_data_srrc_tx1);%过信道
-Send_data_srrc_tx1_ch = awgn(Send_data_srrc_tx1_ch1,SNR_IN,'measured');
+Send_data_srrc_tx1_ch_spn = filter(channelFilter,1,Send_data_srrc_tx1);%过信道
+Send_data_srrc_tx1_ch = awgn(Send_data_srrc_tx1_ch_spn,SNR_IN,'measured');
 %SNR_Old = estimate_SNR(Send_data_srrc_tx1_ch,Send_data_srrc_tx1_ch1)
 
 Send_data_srrc_tx2 = data_aft_map_tx2;
-Send_data_srrc_tx1_ch2 = filter(channelFilter,1,Send_data_srrc_tx2);%过信道
-Send_data_srrc_tx1_ch2 = awgn(Send_data_srrc_tx1_ch2,SNR_IN,'measured');
+Send_data_srrc_tx1_ch_dpn = filter(channelFilter,1,Send_data_srrc_tx2);%过信道
+Send_data_srrc_tx1_ch2 = awgn(Send_data_srrc_tx1_ch_dpn,SNR_IN,'measured');
 
 matfilename = strcat('DTMB_data_awgn_SNR',num2str(SNR_IN),'.mat');
 if debug_multipath
     matfilename = strcat('DTMB_data_multipath_new',num2str(debug_path_type),'SNR',num2str(SNR_IN),'.mat');
 end
-save(matfilename,'Send_data_srrc_tx1_ch','Send_data_srrc_tx1_ch2','data_transfer','tps_position','tps_symbol')
+save(matfilename,'Send_data_srrc_tx1_ch','Send_data_srrc_tx1_ch_spn','Send_data_srrc_tx1_ch_dpn','Send_data_srrc_tx1_ch2','data_transfer','tps_position','tps_symbol')
 
 end

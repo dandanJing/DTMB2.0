@@ -1,5 +1,6 @@
 %%channel estimation 
 %%论文 1.Channel Estimation for the Chinese DTTB
+%%拖尾拼接
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48,64QAM
 %%方法2
 clear all,close all,clc
