@@ -6,7 +6,7 @@
 clear all,close all,clc
 debug = 0;
 debug_tps = 1;
-SNR = [15:5:30];
+SNR = [25];
 
 spn_mean_mse = zeros(1,length(SNR));
 dpn_mean_mse = zeros(1,length(SNR));
@@ -20,7 +20,7 @@ for SNR_IN = SNR %定义输入信噪比
     
 %%数据输入
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 1;%定义多径类型
+debug_path_type = 8;%定义多径类型
 if debug_multipath
     matfilename = strcat('DTMB_data_multipath_new',num2str(debug_path_type),'SNR',num2str(SNR_IN),'.mat');
     load(matfilename);
@@ -54,15 +54,20 @@ PN = PN_gen*1.975;
 temp = ifft(pn512);
 DPN = temp*sqrt(var(PN)/var(temp));
 
+%%信道
+channelFilter = multipath_new(debug_path_type,1/7.56,1,0);
+channel_real = zeros(1,PN_total_len);
+channel_real(1:length(channelFilter)) = channelFilter;
+    
 %%接收机
-chan_len = 260;%信道长度
+chan_len = 100;%信道长度
 MAX_CHANNEL_LEN =PN_total_len;
 last_frame_tail = [0];
 stateSrrcReceive = [];
 h_prev1 = []; %前一帧信道估计
 h_prev2 = [];  %前两帧信道估计
 recover_data = zeros(1,sim_num*(Frame_len-PN_total_len));
- recover_data_dpn = zeros(1,sim_num*(Frame_len-PN_total_len));
+recover_data_dpn = zeros(1,sim_num*(Frame_len-PN_total_len));
 recover_data_pos = 1;
 start_pos = 1;
 h_off_thresh = 0.02; %根据前两帧信道估计当前帧时设置的阈值
@@ -83,14 +88,19 @@ spn_rcov_channel_data_time = zeros(1,FFT_len*(sim_num-1));
 %单PN信道估计结果与真实传输数据的卷积结果
 spn_ch_data_conv_time = zeros(1,FFT_len*(sim_num-1));
 spn_ch_data_conv_freq = zeros(1,FFT_len*(sim_num-1));
-%%单PN信道估计
+h_iter = zeros(1,1024);
+%单PN信道估计
  for i=1:sim_num-1
       close all;
+      figure;
+      plot(abs(channel_real));
+      title('真实多径信道');
       Receive_data = Send_data_srrc_tx1_ch((i-1)*Frame_len+1:i*Frame_len);
       
       if(i < 3)  %前两帧进行信道估计，不迭代
           chan_in = Receive_data(1:PN_total_len+chan_len);
           h_current = channel_estimate(chan_in, PN, 2048, 0.1,debug);
+          h_current(chan_len+1:end)=0;
           h_pn_conv = channel_pn_conv(PN,h_current,chan_len);
           %保存状态
           h_prev2 = h_prev1;
@@ -127,6 +137,8 @@ spn_ch_data_conv_freq = zeros(1,FFT_len*(sim_num-1));
       end
        
      last_frame_ofdm_eq =  last_frame_ofdm_freq./last_frame_h_freq;
+     max_h = max(abs(last_frame_h_freq));
+     last_frame_ofdm_eq(abs(last_frame_h_freq)<max_h*h_average_thresh)=0;
      last_frame_ofdm_eq_data = ifft(last_frame_ofdm_eq);
      last_frame_ofdm_eq_data =last_frame_ofdm_eq_data(1:FFT_len);
      
@@ -158,11 +170,11 @@ spn_ch_data_conv_freq = zeros(1,FFT_len*(sim_num-1));
                 if i < h_start_iter_frame
                     h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
                     pn_recover = [current_frame_pn h_pn_conv(PN_total_len+(1:chan_len))];
-                    h_iter = channel_estimate_A(pn_recover,PN, 2048,debug);
+                    h_iter = channel_estimate_A(pn_recover,PN, 2048,0);
                     if k == iter_num
                         h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
                         pn_recover = [current_frame_pn h_pn_conv(PN_total_len+(1:chan_len))];
-                        h_temp = channel_estimate_B(pn_recover,PN, 2048,debug);
+                        h_temp = channel_estimate_B(pn_recover,PN, 2048,0);
                         chan_len = min(chan_len_estimate(h_temp),MAX_CHANNEL_LEN);
                         h_temp(chan_len+1:end)=0;
                         channel_estimate_temp(i,:) = h_temp(1:PN_total_len);
@@ -170,7 +182,7 @@ spn_ch_data_conv_freq = zeros(1,FFT_len*(sim_num-1));
                 elseif i >= h_start_iter_frame
                     h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
                     pn_recover = [current_frame_pn h_pn_conv(PN_total_len+(1:chan_len))];
-                    h_temp = channel_estimate_B(pn_recover,PN, 2048,debug);
+                    h_temp = channel_estimate_B(pn_recover,PN, 2048,0);
                     chan_len = min(chan_len_estimate(h_temp),MAX_CHANNEL_LEN);
                     h_temp(chan_len+1:end)=0;
                     channel_estimate_temp(i,:) = h_temp(1:PN_total_len);
@@ -197,6 +209,8 @@ spn_ch_data_conv_freq = zeros(1,FFT_len*(sim_num-1));
               else
                   h_iter = channel_estimate_A(pn_recover,PN, 2048,debug);
               end
+              chan_len = min(chan_len_estimate(h_iter)+10,MAX_CHANNEL_LEN);
+              h_iter(chan_len+1:end)=0;
           end
       end     
       h_iter_old = sc_h1;
@@ -213,7 +227,6 @@ spn_ch_data_conv_freq = zeros(1,FFT_len*(sim_num-1));
              pause;
         end
       end
-      
       chan_len = min(chan_len_estimate(h_iter),MAX_CHANNEL_LEN);
       h_iter(chan_len+1:end)=0;
       h_prev2 = h_prev1;
@@ -224,12 +237,6 @@ spn_ch_data_conv_freq = zeros(1,FFT_len*(sim_num-1));
  
  %%真实多径信道与单PN估计结果比较
  if debug_multipath
-     max_delay = 10;
-    doppler_freq = 0;
-    isFading = 0;
-    channelFilter = multipath_new(debug_path_type,1/7.56,1,0);
-    channel_real = zeros(1,PN_total_len);
-    channel_real(1:length(channelFilter)) = channelFilter;
     figure;
     subplot(1,2,1);
     plot(abs(channel_real));
@@ -253,6 +260,7 @@ dpn_ch_data_conv_time = zeros(1,FFT_len*(sim_num-1));
 dpn_ch_data_conv_freq = zeros(1,FFT_len*(sim_num-1));
 
  channel_real_freq = fft(channel_real,FFT_len);
+ 
   %% 双PN信道估计
  frame_test = DPN_total_len + FFT_len;
  for i=1:sim_num-1
@@ -263,11 +271,16 @@ dpn_ch_data_conv_freq = zeros(1,FFT_len*(sim_num-1));
       pn512_fft = fft(pn_test);
       dpn_h_freq =  pn512_fft./ pn512;
       dpn_h_time = ifft(dpn_h_freq);
-      chan_len_dpn = min(chan_len_estimate(dpn_h_time),MAX_CHANNEL_LEN);
+      chan_len_dpn = min(chan_len_estimate(dpn_h_time)+20,MAX_CHANNEL_LEN);
       dpn_h_time(chan_len_dpn+1:end)=0;
       channel_estimate_dpn(i,1:PN_total_len)=dpn_h_time(1:PN_total_len);
+%       close all;
+%       figure;
+%       plot(abs(channel_real));
+%       title('真实多径信道');
+%       figure;
+%       plot(abs(dpn_h_time));
       
-     
       temp_PN = DPN;
       temp_PN_len = DPN_len;
       temp_total_len = DPN_total_len;
@@ -306,6 +319,8 @@ dpn_ch_data_conv_freq = zeros(1,FFT_len*(sim_num-1));
  num = sim_num-9;
  mean_pos = h_start_iter_frame+1:num;
  dpn_channel_mean = mean(channel_estimate_dpn(mean_pos,:));
+ chan_len = min(chan_len_estimate(dpn_channel_mean)+10,MAX_CHANNEL_LEN);
+ dpn_channel_mean(chan_len+1:end)=0;
  dpn_mean_off = dpn_channel_mean -  channel_real;
  dpn_mean_mse(mse_pos) = norm(dpn_mean_off)/norm(channel_real);
  
@@ -314,6 +329,8 @@ dpn_ch_data_conv_freq = zeros(1,FFT_len*(sim_num-1));
  spn_mean_mse(mse_pos) = norm(spn_mean_off)/norm(channel_real);
 
  temp_mean = mean(channel_estimate_temp(mean_pos,:));
+ chan_len = min(chan_len_estimate(temp_mean),MAX_CHANNEL_LEN);
+ temp_mean(chan_len+1:end)=0;
  temp_off = temp_mean -  channel_real;
  temp_mse(mse_pos) =  norm(temp_off)/norm(channel_real);
  
@@ -354,23 +371,19 @@ dpn_ch_data_conv_freq = zeros(1,FFT_len*(sim_num-1));
 end
 
 figure;
-subplot(1,3,1)
-semilogy(SNR,spn_mean_mse,'r*-');
-title('单PN估计MSE');
-subplot(1,3,2)
-semilogy(SNR,dpn_mean_mse,'k*-');
-title('双PN信道平均估计MSE');
-subplot(1,3,3)
-semilogy(SNR,temp_mse,'k*-');
-title('temp信道平均估计MSE');
-
-figure;
 subplot(1,2,1)
-plot(SNR,spn_pnrm_SNR,'r*-');
-title('单PN进行数据循环重构后的信噪比');
+semilogy(SNR,temp_mse,'r*-');
+title('单PN估计MSE');
 subplot(1,2,2)
+semilogy(SNR,dpn_mean_mse,'k*-');
+title('双PN估计MSE');
+
+figure;hold on;
+plot(SNR,spn_pnrm_SNR,'r*-');
 plot(SNR,dpn_pnrm_SNR,'k*-');
-title('双PN进行数据循环重构后的信噪比');
+legend('单PN','双PN');
+title('数据循环重构后的信噪比');
+hold off;
 
 figure;hold on;
 plot(SNR,spn_pn_chan_conv_freq_SNR,'r*-');
