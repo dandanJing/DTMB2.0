@@ -4,8 +4,8 @@ clear all,close all,clc
 
 debug = 0;
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 8;%定义多径类型
-SNR = [25];
+debug_path_type = 16;%定义多径类型
+SNR = [10:5:30];
 for SNR_IN = SNR  %定义输入信噪比
 
 %%参数定义
@@ -16,7 +16,7 @@ PN_cyclic_Len = PN_total_len - PN_len;%帧头中循环扩展的长度
 PN_power = 3; %帧头幅度dB
 FFT_len = 3888*8; %帧体所需的FFT、IFFT长度
 Frame_len = PN_total_len + FFT_len; %帧长
-Super_Frame = 10; %超帧长度
+Super_Frame = 100; %超帧长度
 Srrc_oversample = 1; %过采样率
 Symbol_rate = 7.56e6; %符号速率
 Sampling_rate = Symbol_rate * Srrc_oversample;%采样速率
@@ -83,8 +83,14 @@ for i=1:sim_num
     data_transfer(data_start_pos:data_start_pos+FFT_len-1)=modtemp;
     data_start_pos = data_start_pos + FFT_len;
     
-    frm_len = Frame_len;
-    data_aft_map_tx1(start_pos:start_pos+frm_len-1)=[PN temp_t1];
+   
+    if mod(i,Super_Frame) == 1
+         frm_len = Frame_len+PN_total_len;
+         data_aft_map_tx1(start_pos:start_pos+frm_len-1)=[PN PN temp_t1];
+    else
+        frm_len = Frame_len;
+        data_aft_map_tx1(start_pos:start_pos+frm_len-1)=[PN temp_t1];
+    end
     start_pos = start_pos+frm_len;
     
     frm_len_1 = FFT_len+DPN_total_len;
@@ -105,6 +111,6 @@ matfilename = strcat('DTMB_data_awgn_SNR',num2str(SNR_IN),'.mat');
 if debug_multipath
     matfilename = strcat('DTMB_data_multipath_new',num2str(debug_path_type),'SNR',num2str(SNR_IN),'.mat');
 end
-save(matfilename,'Send_data_srrc_tx1_ch','Send_data_srrc_tx1_ch_spn','Send_data_srrc_tx1_ch_dpn','Send_data_srrc_tx1_ch2','data_transfer','tps_position','tps_symbol')
+save(matfilename,'Send_data_srrc_tx1_ch','Send_data_srrc_tx1_ch_spn','Send_data_srrc_tx1_ch_dpn','Send_data_srrc_tx1_ch2','data_transfer','tps_position','tps_symbol','Super_Frame')
 
 end

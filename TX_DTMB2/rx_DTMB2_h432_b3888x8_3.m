@@ -4,7 +4,7 @@
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48,64QAM
 %%方法2
 clear all,close all,clc
-debug = 0;
+debug = 1;
 debug_tps = 1;
 SNR = [25];
 
@@ -60,7 +60,7 @@ channel_real = zeros(1,PN_total_len);
 channel_real(1:length(channelFilter)) = channelFilter;
     
 %%接收机
-chan_len = 100;%信道长度
+chan_len = 300;%信道长度
 MAX_CHANNEL_LEN =PN_total_len;
 last_frame_tail = [0];
 stateSrrcReceive = [];
