@@ -9,8 +9,8 @@ debug = 0;
 debug_tps = 1;%TPS
 debug_frame_32k_eq = 0;%定义数据帧均衡长度，1为32K， 0为FFT_Len
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 16;%定义多径类型
-SNR = [15:5:30];
+debug_path_type = 8;%定义多径类型
+SNR = [25];
 
 %%参数定义
 PN_len = 255;  % PN 长度
@@ -77,7 +77,7 @@ for SNR_IN = SNR %定义输入信噪比
     h_off_thresh = 0.02;
     h_ave_frame_num = 50;
     h_start_ave_frame_num = 20;
-    h_start_frame_num = 50;
+    h_start_frame_num = 105;
     h_average_thresh = 0.005;
     mmse_weight = 0.99;
     
@@ -170,8 +170,8 @@ for SNR_IN = SNR %定义输入信噪比
               h_freq = pn_freq./fft(PN);
               h_current = ifft(h_freq);
               chan_len = min(chan_len_estimate(h_current),MAX_CHANNEL_LEN);
-              if chan_len > 300
-                   h_current = channel_mmse_filter(h_current, mmse_weight);
+              if chan_len > 250
+                   h_current =  channel_mmse_filter(h_current, mmse_weight);
                    chan_len = min(chan_len_estimate(h_current),MAX_CHANNEL_LEN);
               end
               if chan_len > 300
@@ -203,10 +203,25 @@ for SNR_IN = SNR %定义输入信噪比
                   h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
                   pn_recover = [pn_rm_inter h_pn_conv(PN_total_len+(1:chan_len))];
                   h_temp = channel_estimate_B(pn_recover,PN, 2048,0);
+                  if debug
+                      figure;
+                      plot(abs(h_temp(1:PN_total_len)));
+                      title('htemp-B');
+                  end
                   chan_len_temp = min(chan_len_estimate(h_temp),MAX_CHANNEL_LEN);
+                  
                   if i < h_ave_frame_num 
-                       h_temp = channel_mmse_filter(h_temp, mmse_weight);
+                       h_temp =  channel_mmse_filter(h_temp, mmse_weight);
+                       if debug
+                          figure;
+                          plot(abs(h_temp(1:PN_total_len)));
+                          title('htemp-mmse');
+                      end
                        chan_len_temp = min(chan_len_estimate(h_temp),MAX_CHANNEL_LEN);
+                       if chan_len_temp > 250
+                           h_temp = channel_denoise(h_temp,0.04);
+                           chan_len_temp = min(chan_len_estimate(h_temp),MAX_CHANNEL_LEN);
+                       end
                   end
                   chan_len_array(mse_pos,i)=chan_len_temp;
                    if i >= h_ave_frame_num
@@ -214,7 +229,16 @@ for SNR_IN = SNR %定义输入信噪比
                    else
                        chan_len = floor(mean(chan_len_array(mse_pos,1:i)));
                    end
+                   if i>= h_ave_frame_num && chan_len > 250
+                       h_temp =  channel_mmse_filter(h_temp, mmse_weight);
+                       h_temp = channel_denoise(h_temp,0.01);
+                   end
                   h_temp(chan_len+1:end)=0;
+                  if debug
+                      figure;
+                      plot(abs(h_temp(1:PN_total_len)));
+                      title('htemp');
+                  end
                   channel_estimate_temp(i,:) = h_temp(1:PN_total_len);
                   if i >= h_ave_frame_num+h_start_ave_frame_num
                       h_iter = mean(channel_estimate_temp(i-h_ave_frame_num+1:i,:));
