@@ -19,7 +19,7 @@ for i=1:fft_size
 end
 
 h_out = sc_h_out;
-h_in_max = max(abs(sc_h_in));
+h_in_max = max(abs(h_out));
 pos = abs(sc_h_in)>h_in_max*0.02;
 h_out(pos)=sc_h_in(pos);
 h_out_max = max(abs(h_out));
