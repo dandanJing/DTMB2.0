@@ -10,7 +10,7 @@ debug_tps = 1;
 debug_eq_total = 0;%1为 frame_len  0为fft_len
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 8;%定义多径类型
-SNR = [20];
+SNR = [25];
 
 %%参数定义
 PN_len = 255;  % PN 长度
@@ -76,12 +76,12 @@ for SNR_IN = SNR %定义输入信噪比
     start_pos = 1;
     h_off_thresh = 0.02; %根据前两帧信道估计当前帧时设置的阈值
 
-    h_start_frame_num = 105;
-    h_ave_frame_num = 50;
+    h_start_frame_num = 135;
+    h_ave_frame_num = 100;
     h_ave_frame_num_dpn = 100;
     h_start_ave_frame_num = 5;
     h_average_thresh = 0.005;
-    h_denoise_thresh = 0.008;
+    h_denoise_thresh_init = 0.01;
     
     channel_estimate_spn = zeros(sim_num,MAX_CHANNEL_LEN);
     channel_estimate_dpn = zeros(sim_num,MAX_CHANNEL_LEN);
@@ -92,10 +92,15 @@ for SNR_IN = SNR %定义输入信噪比
     %%单PN信道估计
      for i=1:sim_num-1
           close all;
-          figure;
-          plot(abs(channel_real));
-          title('真实多径信道');
-
+          if debug || i == sim_num-1
+              figure;
+              plot(abs(channel_real));
+              title('真实多径信道');
+              figure;
+              plot(abs(fft(channel_real)));
+              title('真实多径信道频域响应');
+          end
+          
           last_frame_start_pos = start_pos - Frame_len;
           if mod(i,Super_Frame)==1
               start_pos = start_pos + PN_total_len;
@@ -110,13 +115,14 @@ for SNR_IN = SNR %定义输入信噪比
               pn_freq = fft(chan_in);
               h_freq = pn_freq./fft(PN);
               h_current = ifft(h_freq);
+              %h_current = channel_real;
               h_old = h_current;
               chan_len = min(chan_len_estimate(h_current),MAX_CHANNEL_LEN);
               if chan_len > 300
                   chan_len = min(chan_len_estimate_1(h_current),MAX_CHANNEL_LEN);
               end
               h_current(chan_len+1:end)=0;
-              h_current = channel_denoise(h_current,h_denoise_thresh);
+              h_current = channel_denoise(h_current,h_denoise_thresh_init);
               if debug
                 chan_off = h_current(1:PN_total_len)-channel_real;
                 mse = norm(chan_off)/norm(channel_real)
@@ -150,6 +156,7 @@ for SNR_IN = SNR %定义输入信噪比
                      eq_data_freq = fft(eq_in_data);
                      h_freq = fft( h_iter,Frame_len);
                      eq_data_freq = (eq_data_freq./h_freq);
+                     %h_off_thresh = max(abs(h_freq))*0.005;
                      eq_data_freq(abs(h_freq)<h_off_thresh) =  0;
                      eq_data_time = ifft(eq_data_freq);
                      h_freq_fftlen =  fft( h_iter,2*PN_total_len);
@@ -163,7 +170,7 @@ for SNR_IN = SNR %定义输入信噪比
                      channel_estimate_temp(i,:) = h_temp(1:PN_total_len);
                      if i < h_ave_frame_num+h_start_ave_frame_num
                          h_iter = channel_estimate_temp(1,:);
-                         h_temp = channel_denoise(h_temp,h_denoise_thresh);
+                         h_temp = channel_denoise1(h_temp,h_denoise_thresh_init);
                          channel_estimate_temp(i,:) = h_temp(1:PN_total_len);
                      else
                          h_iter = mean(channel_estimate_temp(i-h_ave_frame_num+1:i,:));
@@ -179,6 +186,7 @@ for SNR_IN = SNR %定义输入信噪比
                       eq_in_data_freq = fft(eq_in_data);
                       h_freq = fft( h_iter,FFT_len);
                       eq_data_freq = eq_in_data_freq./h_freq;
+                      %h_off_thresh = max(abs(h_freq))*0.005;
                       eq_data_freq(abs(h_freq)<h_off_thresh) = 0;
                       eq_data_time = ifft(eq_data_freq);
                       h_freq_fftlen =  fft( h_iter,2*PN_total_len);
@@ -192,7 +200,7 @@ for SNR_IN = SNR %定义输入信噪比
                      channel_estimate_temp(i,:) = h_temp(1:PN_total_len);
                      if i < h_ave_frame_num+h_start_ave_frame_num
                          h_iter = channel_estimate_temp(1,:);
-                         h_temp = channel_denoise(h_temp,h_denoise_thresh);
+                         h_temp = channel_denoise(h_temp,h_denoise_thresh_init);
                          channel_estimate_temp(i,:) = h_temp(1:PN_total_len);
                      else
                          h_iter = mean(channel_estimate_temp(i-h_ave_frame_num+1:i,:));
@@ -206,7 +214,7 @@ for SNR_IN = SNR %定义输入信噪比
           chan_len = min(chan_len_estimate(h_iter),MAX_CHANNEL_LEN);
           h_iter(chan_len+1:end)=0;
           if chan_len > 250
-              h_iter = channel_denoise(h_iter,h_denoise_thresh);
+              h_iter = channel_denoise(h_iter,h_denoise_thresh_init);
           end
           channel_estimate_spn(i,:) = h_iter(1:PN_total_len);
           h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
@@ -332,6 +340,7 @@ for SNR_IN = SNR %定义输入信噪比
      dpn_mean_mse(mse_pos) = norm(dpn_mean_off)/norm(channel_real);
 
      spn_channel_mean = mean(channel_estimate_spn(mean_pos,:));
+     chan_len = min(chan_len_estimate(spn_channel_mean),MAX_CHANNEL_LEN);
       spn_channel_mean(chan_len+1:end)=0;
      spn_mean_off = spn_channel_mean -  channel_real;
      spn_mean_mse(mse_pos) = norm(spn_mean_off)/norm(channel_real);

@@ -11,7 +11,7 @@ debug_lmmse = 0;%LMMSE
 debug_frame_32k_eq = 0;%定义数据帧均衡长度，1为32K， 0为FFT_Len
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 8;%定义多径类型
-SNR = [25];
+SNR = [15:5:30];
 
 %%参数定义
 PN_len = 255;  % PN 长度
