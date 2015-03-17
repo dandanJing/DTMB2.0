@@ -4,9 +4,9 @@
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48,64QAM
 %%方法2
 clear all,close all,clc
-debug = 0;
+debug = 1;
 debug_tps = 1;
-debug_eq_total = 1;%1为 frame_len  0为fft_len
+debug_eq_total = 0;%1为 frame_len  0为fft_len
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 16;%定义多径类型
 SNR = [25];
@@ -77,6 +77,7 @@ for SNR_IN = SNR %定义输入信噪比
 
     h_start_frame_num = 105;
     h_ave_frame_num = 50;
+    h_ave_frame_num_dpn = 100;
     h_start_ave_frame_num = 5;
     h_average_thresh = 0.005;
     
@@ -112,6 +113,7 @@ for SNR_IN = SNR %定义输入信噪比
               if chan_len > 300
                   chan_len = min(chan_len_estimate_1(h_current),MAX_CHANNEL_LEN);
               end
+              h_current(chan_len+1:end)=0;
               if debug
                 chan_off = h_current(1:PN_total_len)-channel_real;
                 mse = norm(chan_off)/norm(channel_real)
@@ -124,7 +126,6 @@ for SNR_IN = SNR %定义输入信噪比
                 title('超帧头估计结果');
                 pause;
               end
-              h_current(chan_len+1:end)=0;
               channel_estimate_temp(i,:) = h_current(1:PN_total_len);
               if i >= h_ave_frame_num+h_start_ave_frame_num
                   h_iter = mean(channel_estimate_temp(i-h_ave_frame_num+1:i,:));
@@ -163,28 +164,29 @@ for SNR_IN = SNR %定义输入信噪比
                          h_iter = mean(channel_estimate_temp(i-h_ave_frame_num+1:i,:));
                      end
                   else
+                      h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
                       eq_in_data = Receive_data(PN_total_len+1:end);
-                      data_tail = Send_data_srrc_tx1_ch((i)*Frame_len+(1:chan_len))-h_pn_conv(1:chan_len);
+                      data_tail =  Send_data_srrc_tx1_ch(start_pos+Frame_len+(1:chan_len))-h_pn_conv(1:chan_len);
                       eq_in_data(1:chan_len)=eq_in_data(1:chan_len)-h_pn_conv(PN_total_len+(1:chan_len))+data_tail;
                       eq_in_data_freq = fft(eq_in_data);
                       h_freq = fft( h_iter,FFT_len);
                       eq_data_freq = eq_in_data_freq./h_freq;
                       eq_data_freq(abs(h_freq)<h_off_thresh) = 0;
                       eq_data_time = ifft(eq_data_freq);
-                     h_freq_fftlen =  fft( h_iter,2*PN_total_len);
-                     fft_data_freq = fft(eq_data_time(1:PN_total_len),2*PN_total_len);
-                     data_chan_conv = ifft(fft_data_freq.* h_freq_fftlen);
-                     chan_in = Receive_data(1:PN_total_len+chan_len);
-                     chan_in(1:chan_len)= chan_in(1:chan_len)-last_frame_data_conv(PN_total_len+(1:chan_len));
-                     chan_in(PN_total_len+(1:chan_len))=chan_in(PN_total_len+(1:chan_len))-data_chan_conv(1:chan_len);
-                     if k == iter_num
-                        h_iter = channel_estimate_A(chan_in, PN, 2048, 0);
+                      h_freq_fftlen =  fft( h_iter,2*PN_total_len);
+                      fft_data_freq = fft(eq_data_time(1:PN_total_len),2*PN_total_len);
+                      data_chan_conv = ifft(fft_data_freq.* h_freq_fftlen);
+                      chan_in = Receive_data(1:PN_total_len+chan_len);
+                      chan_in(1:chan_len)= chan_in(1:chan_len)-last_frame_data_conv(PN_total_len+(1:chan_len));
+                      chan_in(PN_total_len+(1:chan_len))=chan_in(PN_total_len+(1:chan_len))-data_chan_conv(1:chan_len);
+                      h_temp = channel_estimate_B(chan_in,PN, 2048,debug);
+                      h_temp(chan_len+1:end)=0;
+                     channel_estimate_temp(i,:) = h_temp(1:PN_total_len);
+                     if i < h_ave_frame_num+h_start_ave_frame_num
+                         h_iter = channel_estimate_temp(1,:);
                      else
-                        h_iter = channel_estimate(chan_in, PN, 2048, 0.1, 0);
+                         h_iter = mean(channel_estimate_temp(i-h_ave_frame_num+1:i,:));
                      end
-                     chan_len = min(chan_len_estimate(h_iter),MAX_CHANNEL_LEN);
-                     h_iter(chan_len+1:end)=0;
-                     h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
                   end
               end
           end
@@ -272,8 +274,8 @@ for SNR_IN = SNR %定义输入信噪比
           rcov_channel_real_data_time((i-1)*FFT_len+(1:FFT_len))= ifft(data_real);
 
           %%数据恢复
-          if i >= h_ave_frame_num
-              dpn_chan_mean = mean(channel_estimate_dpn(i- h_ave_frame_num+1:i,:));
+          if i >=  h_ave_frame_num_dpn
+              dpn_chan_mean = mean(channel_estimate_dpn(i-  h_ave_frame_num_dpn+1:i,:));
           elseif i==1
               dpn_chan_mean = channel_estimate_dpn(1,:);
           else
