@@ -218,6 +218,7 @@ for SNR_IN = SNR %定义输入信噪比
                    pn_recover = [pn_rm_inter h_pn_conv(PN_total_len+(1:chan_len))];
                    h_temp = channel_estimate_B(pn_recover,PN, 2048,0);
                    h_temp(chan_len+1:end)=0;
+                   h_temp = channel_denoise1(h_temp,h_denoise_thresh_init);
                    if debug
                       figure;
                       plot(abs(h_temp(1:PN_total_len)));
@@ -238,6 +239,7 @@ for SNR_IN = SNR %定义输入信噪比
                          channel_estimate_temp(i,:) = h_temp(1:PN_total_len);
                          h_iter = mean(channel_estimate_temp(i-h_ave_frame_num+1:i,:));
                          if chan_len > 250 
+                             h_iter = mean(channel_estimate_temp(h_start_ave_frame_num+1:i,:));
                              h_iter =  channel_denoise(h_iter,h_denoise_thresh_init);
                          end
                          chan_len = min(chan_len_estimate(h_iter),MAX_CHANNEL_LEN);
