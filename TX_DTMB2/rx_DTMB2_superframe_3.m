@@ -8,7 +8,7 @@ debug = 0;
 debug_tps = 1;
 debug_eq_total = 1;%1为 frame_len  0为fft_len
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 8;%定义多径类型
+debug_path_type = 16;%定义多径类型
 SNR = [25];
 
 %%参数定义
@@ -76,7 +76,7 @@ for SNR_IN = SNR %定义输入信噪比
     h_off_thresh = 0.02; %根据前两帧信道估计当前帧时设置的阈值
 
     h_start_frame_num = 105;
-    h_ave_frame_num = 100;
+    h_ave_frame_num = 50;
     h_start_ave_frame_num = 5;
     h_average_thresh = 0.005;
     
@@ -130,6 +130,14 @@ for SNR_IN = SNR %定义输入信噪比
                   h_iter = mean(channel_estimate_temp(i-h_ave_frame_num+1:i,:));
               else
                   h_iter = h_current(1:PN_total_len);
+              end
+              if debug_eq_total
+                 eq_in_data = Send_data_srrc_tx1_ch(start_pos+PN_total_len+(1:Frame_len));
+                 eq_data_freq = fft(eq_in_data);
+                 h_freq = fft( h_iter,Frame_len);
+                 eq_data_freq = (eq_data_freq./h_freq);
+                 eq_data_freq(abs(h_freq)<h_off_thresh) =  0;
+                 eq_data_time = ifft(eq_data_freq);
               end
           else
               for k = 1:iter_num
@@ -186,12 +194,13 @@ for SNR_IN = SNR %定义输入信噪比
           h_pn_conv = channel_pn_conv(PN,h_iter,chan_len);
           
           h_sa = h_iter(1:PN_total_len);
+          h_freq = fft(h_sa,FFT_len);
           fft_data = Receive_data(PN_total_len+1:end);
           fft_data_tail =  Send_data_srrc_tx1_ch(start_pos+Frame_len+(1:chan_len))-h_pn_conv(1:chan_len);
           fft_PN_tail = h_pn_conv(PN_total_len+(1:chan_len));
           fft_data(1:chan_len)=fft_data(1:chan_len)-fft_PN_tail+fft_data_tail;
           fft_data_freq = fft(fft_data);
-          h_freq = fft(h_sa,FFT_len);
+          
           ofdm_eq =  fft_data_freq./h_freq;
           max_h = max(abs(h_freq));
           ofdm_eq(abs(h_freq)<max_h*h_average_thresh)=0;
@@ -201,6 +210,7 @@ for SNR_IN = SNR %定义输入信噪比
           data_h_freq_temp = fft(h_sa, 2*PN_total_len);
           data_freq_temp = fft(data_time_tail, 2*PN_total_len);
           last_frame_data_conv = ifft(data_freq_temp.*data_h_freq_temp);
+          
           %数据重构后的时域数据恢复结果
           spn_rcov_channel_data_time((i-1)*FFT_len+(1:FFT_len))= fft_data;
           %数据重构后的频域数据恢复结果
@@ -208,7 +218,7 @@ for SNR_IN = SNR %定义输入信噪比
           
           if debug||i==sim_num-1
               figure;
-              plot(ofdm_eq);
+              plot(ofdm_eq,'.k');
               title('单PN均衡后的数据');
               figure;
               plot(abs(h_iter));
