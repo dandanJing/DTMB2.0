@@ -9,8 +9,8 @@ debug_iter =0;
 debug_tps = 1;
 debug_eq_total = 0;%1为 frame_len  0为fft_len
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 16;%定义多径类型
-SNR = [15:5:30];
+debug_path_type = 8;%定义多径类型
+SNR = [20];
 
 %%参数定义
 PN_len = 255;  % PN 长度
@@ -142,14 +142,6 @@ for SNR_IN = SNR %定义输入信噪比
                   h_iter = h_current(1:PN_total_len);
               end
           else
-%               if i > 2
-%                   [sc_h1 sc_h2] = h_estimate_A(h_prev2, h_prev1, i, h_off_thresh);
-%                   sc_ha = (sc_h1 + sc_h2)/2;
-%               else
-%                   sc_ha = h_prev1;
-%                   sc_h1 = h_prev1;
-%               end
-%               h_iter = sc_ha;
               for k = 1:iter_num
                   if debug_eq_total
                      eq_in_data = Send_data_srrc_tx1_ch(start_pos+PN_total_len+(1:Frame_len));
@@ -170,7 +162,7 @@ for SNR_IN = SNR %定义输入信噪比
                      channel_estimate_temp(i,:) = h_temp(1:PN_total_len);
                      if i < h_ave_frame_num+h_start_ave_frame_num
                          h_iter = channel_estimate_temp(1,:);
-                         h_temp = channel_denoise1(h_temp,h_denoise_thresh_init);
+                         h_temp = channel_denoise(h_temp,h_denoise_thresh_init);
                          channel_estimate_temp(i,:) = h_temp(1:PN_total_len);
                      else
                          h_iter = mean(channel_estimate_temp(i-h_ave_frame_num+1:i,:));

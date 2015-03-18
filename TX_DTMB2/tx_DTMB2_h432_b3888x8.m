@@ -4,8 +4,8 @@ clear all,close all,clc
 
 debug = 0;
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 16;%定义多径类型
-SNR = [15];
+debug_path_type = 8;%定义多径类型
+SNR = [25:5:40];
 for SNR_IN = SNR  %定义输入信噪比
 
 %%参数定义
@@ -44,23 +44,17 @@ if debug_multipath
 end
 
 %%TPS
-tps_len = 38*8;
-tps_symbol = zeros(1,38*8);
-
+tps_len = 48*8;
+tps_symbol = zeros(1,tps_len);
 tps_position =[];
-d = 1; %离散导频为2d+1
-discret_num = 88;
-continu_tps_length = (38*8-(2*d+1)*discret_num)/2;
-ofdm_block_len = (FFT_len-tps_len)/discret_num;
-total_block_len = ofdm_block_len+(2*d+1);
-tps_position = [1:continu_tps_length];
+d = 2; %离散导频为2d+1
+discret_num = ceil(tps_len/(2*d+1));
+block_len = floor(FFT_len/discret_num);
 for kk = 1:discret_num
-    temp = continu_tps_length+(kk-1)*(total_block_len)+ofdm_block_len+(1:2*d+1);
+    temp = (kk-1)*(block_len)+(1:2*d+1);
     tps_position = [tps_position temp];
 end
- tps_position = [tps_position FFT_len-continu_tps_length+1:FFT_len];
- 
- tps_position = [1:tps_len/2 FFT_len-tps_len/2+1:FFT_len];
+ tps_position = tps_position(1:tps_len);
  tps_data = randi([0 1],1,tps_len*BitPerSym);
  modtemp1=map64q(tps_data); %%星座映射
  tps_symbol= modtemp1*3888*20;
@@ -83,14 +77,8 @@ for i=1:sim_num
     data_transfer(data_start_pos:data_start_pos+FFT_len-1)=modtemp;
     data_start_pos = data_start_pos + FFT_len;
     
-   
-    if mod(i,Super_Frame) == 1
-         frm_len = Frame_len+PN_total_len;
-         data_aft_map_tx1(start_pos:start_pos+frm_len-1)=[PN PN temp_t1];
-    else
-        frm_len = Frame_len;
-        data_aft_map_tx1(start_pos:start_pos+frm_len-1)=[PN temp_t1];
-    end
+    frm_len = Frame_len;
+    data_aft_map_tx1(start_pos:start_pos+frm_len-1)=[PN temp_t1];
     start_pos = start_pos+frm_len;
     
     frm_len_1 = FFT_len+DPN_total_len;
@@ -100,17 +88,16 @@ end
 
 Send_data_srrc_tx1 = data_aft_map_tx1;
 Send_data_srrc_tx1_ch_spn = filter(channelFilter,1,Send_data_srrc_tx1);%过信道
-Send_data_srrc_tx1_ch = awgn(Send_data_srrc_tx1_ch_spn,SNR_IN,'measured');
-%SNR_Old = estimate_SNR(Send_data_srrc_tx1_ch,Send_data_srrc_tx1_ch1)
+Send_data_srrc_tx1_spn = awgn(Send_data_srrc_tx1_ch_spn,SNR_IN,'measured');
 
 Send_data_srrc_tx2 = data_aft_map_tx2;
 Send_data_srrc_tx1_ch_dpn = filter(channelFilter,1,Send_data_srrc_tx2);%过信道
-Send_data_srrc_tx1_ch2 = awgn(Send_data_srrc_tx1_ch_dpn,SNR_IN,'measured');
+Send_data_srrc_tx1_dpn = awgn(Send_data_srrc_tx1_ch_dpn,SNR_IN,'measured');
 
 matfilename = strcat('DTMB_data_awgn_SNR',num2str(SNR_IN),'.mat');
 if debug_multipath
     matfilename = strcat('DTMB_data_multipath_new',num2str(debug_path_type),'SNR',num2str(SNR_IN),'.mat');
 end
-save(matfilename,'Send_data_srrc_tx1_ch','Send_data_srrc_tx1_ch_spn','Send_data_srrc_tx1_ch_dpn','Send_data_srrc_tx1_ch2','data_transfer','tps_position','tps_symbol','Super_Frame')
+save(matfilename,'Send_data_srrc_tx1_spn','Send_data_srrc_tx1_ch_spn','Send_data_srrc_tx1_ch_dpn','Send_data_srrc_tx1_dpn','data_transfer','tps_position','tps_symbol','Super_Frame')
 
 end
