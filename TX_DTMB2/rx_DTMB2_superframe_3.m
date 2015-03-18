@@ -9,8 +9,8 @@ debug_iter =0;
 debug_tps = 1;
 debug_eq_total = 0;%1为 frame_len  0为fft_len
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 8;%定义多径类型
-SNR = [25];
+debug_path_type = 16;%定义多径类型
+SNR = [15:5:30];
 
 %%参数定义
 PN_len = 255;  % PN 长度
@@ -29,7 +29,7 @@ Sampling_rate = Symbol_rate * Srrc_oversample;%采样速率
 QAM = 0;    %  0: 64QAM ,2:256APSK
 BitPerSym = 6;
 sim_num=1000; %仿真的帧数
-iter_num = 3; %迭代次数
+iter_num = 1; %迭代次数
 MAX_CHANNEL_LEN = PN_total_len;
 
 %%帧头信号

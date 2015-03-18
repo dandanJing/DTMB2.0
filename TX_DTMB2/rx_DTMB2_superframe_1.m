@@ -11,7 +11,7 @@ debug_lmmse = 0;%LMMSE
 debug_frame_32k_eq = 0;%定义数据帧均衡长度，1为32K， 0为FFT_Len
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 16;%定义多径类型
-SNR = [15];
+SNR = [15:5:30];
 
 %%参数定义
 PN_len = 255;  % PN 长度
@@ -29,7 +29,7 @@ Symbol_rate = 7.56e6; %符号速率
 Sampling_rate = Symbol_rate * Srrc_oversample;%采样速率
 QAM = 0;    %  0: 64QAM ,2:256APSK
 BitPerSym = 6;
-sim_num=500; %仿真的帧数
+sim_num=1000; %仿真的帧数
 iter_num = 1; %迭代次数
 
 %%帧头信号
@@ -185,7 +185,7 @@ for SNR_IN = SNR %定义输入信噪比
               h_old = h_current;
               chan_len = min(chan_len_estimate(h_current),MAX_CHANNEL_LEN);
               if chan_len > 300
-                  chan_len
+                  chan_len;
                   chan_len = min(chan_len_estimate_1(h_current),MAX_CHANNEL_LEN);
               end
               h_current(chan_len+1:end)=0;
@@ -390,10 +390,10 @@ for SNR_IN = SNR %定义输入信噪比
     end
      start_pos = FFT_len*h_start_frame_num+1;
      end_pos = FFT_len*(sim_num-9);
-%      dpn_pnrm_SNR(mse_pos) = estimate_SNR(dpn_rcov_channel_data_time(start_pos:end_pos),rcov_channel_real_data_time(start_pos:end_pos))
-%      spn_pnrm_SNR(mse_pos) = estimate_SNR(spn_rcov_channel_data_time(start_pos:end_pos),rcov_channel_real_data_time(start_pos:end_pos))
-%      spn_pn_chan_conv_freq_SNR(mse_pos) = estimate_SNR(spn_ch_data_conv_freq(start_pos:end_pos),rcov_channel_real_data_freq(start_pos:end_pos))
-%      dpn_pn_chan_conv_freq_SNR(mse_pos) = estimate_SNR(dpn_ch_data_conv_freq(start_pos:end_pos),rcov_channel_real_data_freq(start_pos:end_pos))
+     dpn_pnrm_SNR(mse_pos) = estimate_SNR(dpn_rcov_channel_data_time(start_pos:end_pos),rcov_channel_real_data_time(start_pos:end_pos))
+     spn_pnrm_SNR(mse_pos) = estimate_SNR(spn_rcov_channel_data_time(start_pos:end_pos),rcov_channel_real_data_time(start_pos:end_pos))
+     spn_pn_chan_conv_freq_SNR(mse_pos) = estimate_SNR(spn_ch_data_conv_freq(start_pos:end_pos),rcov_channel_real_data_freq(start_pos:end_pos))
+     dpn_pn_chan_conv_freq_SNR(mse_pos) = estimate_SNR(dpn_ch_data_conv_freq(start_pos:end_pos),rcov_channel_real_data_freq(start_pos:end_pos))
      mse_pos = mse_pos + 1;
 end
   
