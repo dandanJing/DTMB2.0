@@ -10,8 +10,8 @@ debug_tps = 1;%TPS
 debug_lmmse = 0;%LMMSE
 debug_frame_32k_eq = 0;%定义数据帧均衡长度，1为32K， 0为FFT_Len
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 8;%定义多径类型
-SNR = [15:5:30];
+debug_path_type = 16;%定义多径类型
+SNR = [15];
 
 %%参数定义
 PN_len = 255;  % PN 长度
@@ -29,8 +29,8 @@ Symbol_rate = 7.56e6; %符号速率
 Sampling_rate = Symbol_rate * Srrc_oversample;%采样速率
 QAM = 0;    %  0: 64QAM ,2:256APSK
 BitPerSym = 6;
-sim_num=1000; %仿真的帧数
-iter_num = 2; %迭代次数
+sim_num=500; %仿真的帧数
+iter_num = 1; %迭代次数
 
 %%帧头信号
 PN = PN_gen*1.975;
@@ -78,7 +78,7 @@ for SNR_IN = SNR %定义输入信噪比
     h_off_thresh = 0.02;
     h_ave_frame_num = 100;
     h_start_ave_frame_num = 5;
-    h_start_frame_num = 105;
+    h_start_frame_num = 135;
     h_average_thresh = 0.005;
     h_filter_thresh = 0.008;
     h_denoise_thresh_init = 0.008;
@@ -181,9 +181,11 @@ for SNR_IN = SNR %定义输入信噪比
               pn_freq = fft(chan_in);
               h_freq = pn_freq./fft(PN);
               h_current = ifft(h_freq);
+              %h_current = channel_real;
               h_old = h_current;
               chan_len = min(chan_len_estimate(h_current),MAX_CHANNEL_LEN);
               if chan_len > 300
+                  chan_len
                   chan_len = min(chan_len_estimate_1(h_current),MAX_CHANNEL_LEN);
               end
               h_current(chan_len+1:end)=0;
@@ -388,10 +390,10 @@ for SNR_IN = SNR %定义输入信噪比
     end
      start_pos = FFT_len*h_start_frame_num+1;
      end_pos = FFT_len*(sim_num-9);
-     dpn_pnrm_SNR(mse_pos) = estimate_SNR(dpn_rcov_channel_data_time(start_pos:end_pos),rcov_channel_real_data_time(start_pos:end_pos))
-     spn_pnrm_SNR(mse_pos) = estimate_SNR(spn_rcov_channel_data_time(start_pos:end_pos),rcov_channel_real_data_time(start_pos:end_pos))
-     spn_pn_chan_conv_freq_SNR(mse_pos) = estimate_SNR(spn_ch_data_conv_freq(start_pos:end_pos),rcov_channel_real_data_freq(start_pos:end_pos))
-     dpn_pn_chan_conv_freq_SNR(mse_pos) = estimate_SNR(dpn_ch_data_conv_freq(start_pos:end_pos),rcov_channel_real_data_freq(start_pos:end_pos))
+%      dpn_pnrm_SNR(mse_pos) = estimate_SNR(dpn_rcov_channel_data_time(start_pos:end_pos),rcov_channel_real_data_time(start_pos:end_pos))
+%      spn_pnrm_SNR(mse_pos) = estimate_SNR(spn_rcov_channel_data_time(start_pos:end_pos),rcov_channel_real_data_time(start_pos:end_pos))
+%      spn_pn_chan_conv_freq_SNR(mse_pos) = estimate_SNR(spn_ch_data_conv_freq(start_pos:end_pos),rcov_channel_real_data_freq(start_pos:end_pos))
+%      dpn_pn_chan_conv_freq_SNR(mse_pos) = estimate_SNR(dpn_ch_data_conv_freq(start_pos:end_pos),rcov_channel_real_data_freq(start_pos:end_pos))
      mse_pos = mse_pos + 1;
 end
   

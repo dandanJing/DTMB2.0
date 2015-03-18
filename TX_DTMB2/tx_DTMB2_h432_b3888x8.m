@@ -4,8 +4,8 @@ clear all,close all,clc
 
 debug = 0;
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 17;%定义多径类型
-SNR = [10:5:30];
+debug_path_type = 16;%定义多径类型
+SNR = [15];
 for SNR_IN = SNR  %定义输入信噪比
 
 %%参数定义
@@ -22,7 +22,7 @@ Symbol_rate = 7.56e6; %符号速率
 Sampling_rate = Symbol_rate * Srrc_oversample;%采样速率
 QAM = 0;    %  0: 64QAM ,2:256APSK
 BitPerSym = 6;
-sim_num=1000; %仿真的帧数
+sim_num=500; %仿真的帧数
 
 load pn256_pn512.mat
 %%帧头信号
