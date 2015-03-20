@@ -22,7 +22,7 @@ Symbol_rate = 7.56e6; %符号速率
 Sampling_rate = Symbol_rate * Srrc_oversample;%采样速率
 QAM = 0;    %  0: 64QAM ,2:256APSK
 BitPerSym = 6;
-sim_num=500; %仿真的帧数
+sim_num=1000; %仿真的帧数
 
 load pn256_pn512.mat
 %%帧头信号
@@ -47,7 +47,7 @@ end
 tps_len = 48*8;
 tps_symbol = zeros(1,tps_len);
 tps_position =[];
-d = 2; %离散导频为2d+1
+d = 0; %离散导频为2d+1
 discret_num = ceil(tps_len/(2*d+1));
 block_len = floor(FFT_len/discret_num);
 for kk = 1:discret_num
