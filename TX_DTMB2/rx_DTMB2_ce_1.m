@@ -221,6 +221,8 @@ for SNR_IN = SNR %定义输入信噪比
           frame_tps = zeros(1,FFT_len);
           frame_tps(tps_position) = frame_data_recover(tps_position)./tps_symbol;
           figure;
+          plot(frame_tps(1:1000));
+          figure;
           h_tps_es = ifft(frame_tps);
           plot(abs(h_tps_es(1:PN_total_len)));
           
