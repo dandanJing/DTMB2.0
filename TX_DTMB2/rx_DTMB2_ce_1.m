@@ -2,10 +2,11 @@
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48*8, 64QAM
 clear all,close all,clc
 
-debug = 0;
+debug = 1;
+debug_tps = 1;
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 16;%定义多径类型
-SNR = [25];
+SNR = [20];
 
 %%参数定义
 PN_total_len = 432; %帧头长度,前同步88，后同步89
@@ -14,7 +15,7 @@ DPN_len = 512;
 load pn256_pn512.mat
 FFT_len = 3888*8; %帧体所需的FFT、IFFT长度
 Frame_len = PN_total_len + FFT_len; %帧长
-sim_num= 1000; %仿真的帧数
+sim_num= 400; %仿真的帧数
 iter_num = 2; %迭代次数
 MAX_CHANNEL_LEN = PN_total_len;
 
@@ -145,9 +146,11 @@ for SNR_IN = SNR %定义输入信噪比
       last_frame_tail = zeros(1,chan_len_spn);
       for i=1:sim_num-1
           close all;
-          figure;
-          plot(abs(channel_real));
-          title('真实信道估计');
+          if debug || i == sim_num-1
+              figure;
+              plot(abs(channel_real));
+              title('真实信道估计');
+          end   
           
           if i==1
               denoise_alpha = 0.2;
@@ -185,8 +188,7 @@ for SNR_IN = SNR %定义输入信噪比
                   chan_len_spn
                   figure;
                   plot(abs(h_iter(1:PN_total_len)));
-                  title('单PN估计结果');
-                  pause;
+                  title('单PN估计结果');             
               end
           end
          
@@ -200,8 +202,7 @@ for SNR_IN = SNR %定义输入信噪比
           if debug
               figure;
               plot(abs(spn_h_smooth_result));
-              title('平滑后信道估计结果');
-              pause;
+              title('平滑后信道估计结果');              
           end
           h_pn_conv = channel_pn_conv(PN, spn_h_smooth_result, chan_len_spn);
           spn_h_freq = fft(spn_h_smooth_result,FFT_len);
@@ -214,16 +215,25 @@ for SNR_IN = SNR %定义输入信噪比
           frame_data_recover(1:chan_len_spn)=frame_data_recover(1:chan_len_spn)-pn_tail+data_tail;
           
           %%TPS
-          frame_data_recover_freq = fft(frame_data_recover);
-          receive_tps = frame_data_recover(tps_position);
-          figure;
-          plot(receive_tps,'*k');
-          frame_tps = zeros(1,FFT_len);
-          frame_tps(tps_position) = frame_data_recover(tps_position)./tps_symbol;
-          figure;
-          h_tps_es = ifft(frame_tps);
-          plot(abs(h_tps_es(1:PN_total_len)));
-          
+          if debug_tps
+              frame_data_recover_freq = fft(frame_data_recover);
+              receive_tps = frame_data_recover_freq(tps_position);
+              frame_tps = zeros(1,FFT_len);
+              frame_tps(tps_position) = frame_data_recover_freq(tps_position)./tps_symbol;
+              if debug
+                  h_frame_tps = frame_tps(tps_position);
+                  h_real_tps = channel_real_freq(tps_position);
+                  h_tps_mse = norm(h_frame_tps-h_real_tps)/norm(h_real_tps)
+                  h_iter_tps = fft(spn_h_smooth_result, FFT_len);
+                  h_iter_tps = h_iter_tps(tps_position);
+                  h_iter_tps_mse = norm(h_iter_tps-h_real_tps)/norm(h_real_tps)
+                  figure;
+                  h_tps_es = ifft(frame_tps);
+                  plot(abs(h_tps_es(1:PN_total_len)));
+                  pause;
+              end
+          end
+               
           %计算当前帧的拖尾，以在下一帧消除其对于PN估计的影响
           frame_data_eq_freq = fft(frame_data_recover)./spn_h_freq;
           frame_data_eq_time = ifft(frame_data_eq_freq);
