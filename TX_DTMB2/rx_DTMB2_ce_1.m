@@ -2,8 +2,8 @@
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48*8, 64QAM
 clear all,close all,clc
 
-debug = 1;
-debug_tps = 1;
+debug = 0;
+debug_tps = 0;
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 16;%定义多径类型
 SNR = [20];
@@ -184,25 +184,18 @@ for SNR_IN = SNR %定义输入信噪比
                   end               
                   h_iter(chan_len_spn+1:end)=0; 
               end
-              if debug
-                  chan_len_spn
-                  figure;
-                  plot(abs(h_iter(1:PN_total_len)));
-                  title('单PN估计结果');             
-              end
           end
          
           channel_estimate_spn(i,:)=h_iter;
-          if i == 1
-              spn_h_smooth_result = spn_h_smooth_alpha *h_iter+(1-spn_h_smooth_alpha)*spn_h_smooth_result;
-          else
-              spn_h_smooth_result =h_iter;
-          end
+          spn_h_smooth_result =h_iter;
           
           if debug
               figure;
               plot(abs(spn_h_smooth_result));
-              title('平滑后信道估计结果');              
+              title('单PN平滑后信道估计结果');
+              if ~debug_tps
+                  pause;
+              end
           end
           h_pn_conv = channel_pn_conv(PN, spn_h_smooth_result, chan_len_spn);
           spn_h_freq = fft(spn_h_smooth_result,FFT_len);
