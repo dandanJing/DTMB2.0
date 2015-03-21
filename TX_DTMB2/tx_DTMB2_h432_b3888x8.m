@@ -4,8 +4,8 @@ clear all,close all,clc
 
 debug = 0;
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 16;%定义多径类型
-SNR = [15:5:25];
+debug_path_type = 8;%定义多径类型
+SNR = [30];
 for SNR_IN = SNR  %定义输入信噪比
 
 %%参数定义
@@ -22,7 +22,7 @@ Symbol_rate = 7.56e6; %符号速率
 Sampling_rate = Symbol_rate * Srrc_oversample;%采样速率
 QAM = 0;    %  0: 64QAM ,2:256APSK
 BitPerSym = 6;
-sim_num=1000; %仿真的帧数
+sim_num=400; %仿真的帧数
 
 load pn256_pn512.mat
 %%帧头信号
@@ -49,9 +49,9 @@ tps_symbol = zeros(1,tps_len);
 tps_position =[];
 d = 0; %离散导频为2d+1
 discret_num = ceil(tps_len/(2*d+1));
-block_len = floor(FFT_len/discret_num);
+tps_block_len = floor(FFT_len/discret_num);
 for kk = 1:discret_num
-    temp = (kk-1)*(block_len)+(1:2*d+1);
+    temp = (kk-1)*(tps_block_len)+(1:2*d+1);
     tps_position = [tps_position temp];
 end
  tps_position = tps_position(1:tps_len);
@@ -98,6 +98,6 @@ matfilename = strcat('DTMB_data_awgn_SNR',num2str(SNR_IN),'.mat');
 if debug_multipath
     matfilename = strcat('DTMB_data_multipath_new',num2str(debug_path_type),'SNR',num2str(SNR_IN),'.mat');
 end
-save(matfilename,'Send_data_srrc_tx1_spn','Send_data_srrc_tx1_ch_spn','Send_data_srrc_tx1_ch_dpn','Send_data_srrc_tx1_dpn','data_transfer','tps_position','tps_symbol','Super_Frame')
+save(matfilename,'Send_data_srrc_tx1_spn','Send_data_srrc_tx1_ch_spn','Send_data_srrc_tx1_ch_dpn','Send_data_srrc_tx1_dpn','data_transfer','tps_position','tps_symbol','Super_Frame','tps_block_len')
 
 end
