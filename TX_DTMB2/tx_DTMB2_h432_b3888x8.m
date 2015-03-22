@@ -4,8 +4,8 @@ clear all,close all,clc
 
 debug = 0;
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 8;%定义多径类型
-SNR = [30];
+debug_path_type = 16;%定义多径类型
+SNR = [20:5:30];
 for SNR_IN = SNR  %定义输入信噪比
 
 %%参数定义
@@ -22,7 +22,7 @@ Symbol_rate = 7.56e6; %符号速率
 Sampling_rate = Symbol_rate * Srrc_oversample;%采样速率
 QAM = 0;    %  0: 64QAM ,2:256APSK
 BitPerSym = 6;
-sim_num=400; %仿真的帧数
+sim_num=1000; %仿真的帧数
 
 load pn256_pn512.mat
 %%帧头信号
@@ -50,6 +50,8 @@ tps_position =[];
 d = 0; %离散导频为2d+1
 discret_num = ceil(tps_len/(2*d+1));
 tps_block_len = floor(FFT_len/discret_num);
+dimY = 3;
+dimX_len = tps_block_len/dimY;
 for kk = 1:discret_num
     temp = (kk-1)*(tps_block_len)+(1:2*d+1);
     tps_position = [tps_position temp];
@@ -72,7 +74,7 @@ for i=1:sim_num
     data_x = randi([0 1],1,FFT_len*BitPerSym);
     modtemp1=map64q(data_x); %%星座映射
     modtemp= modtemp1*3888*20;
-    modtemp(tps_position)= tps_symbol;
+    modtemp(tps_position+mod(i,dimY)*dimX_len)= tps_symbol;
     temp_t1=ifft(modtemp, FFT_len);
     data_transfer(data_start_pos:data_start_pos+FFT_len-1)=modtemp;
     data_start_pos = data_start_pos + FFT_len;
@@ -98,6 +100,7 @@ matfilename = strcat('DTMB_data_awgn_SNR',num2str(SNR_IN),'.mat');
 if debug_multipath
     matfilename = strcat('DTMB_data_multipath_new',num2str(debug_path_type),'SNR',num2str(SNR_IN),'.mat');
 end
-save(matfilename,'Send_data_srrc_tx1_spn','Send_data_srrc_tx1_ch_spn','Send_data_srrc_tx1_ch_dpn','Send_data_srrc_tx1_dpn','data_transfer','tps_position','tps_symbol','Super_Frame','tps_block_len')
+save(matfilename,'Send_data_srrc_tx1_spn','Send_data_srrc_tx1_ch_spn','Send_data_srrc_tx1_ch_dpn','Send_data_srrc_tx1_dpn','data_transfer','tps_position',...
+'tps_symbol','Super_Frame','tps_block_len','dimY','dimX_len');
 
 end

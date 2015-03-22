@@ -5,7 +5,7 @@ clear all,close all,clc
 debug = 1;
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 8;%定义多径类型
-SNR = [30];
+SNR = [25];
 
 %%参数定义
 PN_total_len = 432; %帧头长度,前同步88，后同步89
@@ -14,7 +14,7 @@ DPN_len = 512;
 load pn256_pn512.mat
 FFT_len = 3888*8; %帧体所需的FFT、IFFT长度
 Frame_len = PN_total_len + FFT_len; %帧长
-sim_num= 400; %仿真的帧数
+sim_num= 1000; %仿真的帧数
 iter_num = 2; %迭代次数
 MAX_CHANNEL_LEN = PN_total_len;
 
@@ -26,6 +26,7 @@ dpn_h_smooth_alpha = 1/4;
 dpn_h_smooth_result = [];
 dpn_h_denoise_alpha = 1/256;
 spn_h_denoise_alpha = 0.01;
+spn_tps_h_denoise_alpha = 1/256;
 spn_h_smooth_alpha = 1/4;
 spn_h_smooth_result = zeros(1,PN_total_len);
 
@@ -83,6 +84,8 @@ for SNR_IN = SNR %定义输入信噪比
     %tps_position  TPS位置
     %tps_symbol TPS符号
     %tps_block_len 每帧中TPS块长度
+    %dimY  几个符号构成一个完整的导频帧
+    %dimX_len OFDM符号间TPS位置间隔
     %Super_Frame  超帧长度
     
      %% 双PN信道估计
@@ -152,6 +155,7 @@ for SNR_IN = SNR %定义输入信噪比
       chan_len_spn = 0;
       h_pn_conv = [];
       last_frame_tail = zeros(1,chan_len_spn);
+      last_frame_h_tps = [];
       for i=1:sim_num-1
           close all;
           if debug || i == sim_num-1
@@ -211,28 +215,62 @@ for SNR_IN = SNR %定义输入信噪比
           
           %%TPS
           frame_data_recover_freq = fft(frame_data_recover);
-          h_frame_tps = frame_data_recover_freq(tps_position)./tps_symbol;
-          h_frame_tps_interp = interp(h_frame_tps,tps_block_len);
+          tps_pos_current = tps_position+mod(i,dimY)*dimX_len; 
+          h_frame_tps_current = frame_data_recover_freq(tps_pos_current)./tps_symbol;          
+          if i ~= 1
+             tps_pos_total = [tps_pos_current tps_position+mod(i-1,dimY)*dimX_len];
+             h_tps_total = [h_frame_tps_current last_frame_h_tps];
+          else
+              tps_pos_total =  tps_pos_current;
+              h_tps_total =  h_frame_tps_current;
+          end
+          
+          h_frame_tps_interp = interp1(tps_pos_total,h_tps_total,[1:FFT_len],'spline','extrap');
+          if debug
+              tps_temp = zeros(1,FFT_len);
+              tps_temp(tps_pos_current)=h_frame_tps_current;
+              tps_pos_temp = sort(tps_pos_current);
+              tps_h_sort = tps_temp(tps_pos_temp);
+              tps_H_fft = fft(tps_h_sort);
+              figure;
+              plot(abs(tps_H_fft));
+              title('transform TPS H');
+              fft_interp = fft(h_frame_tps_interp);
+              fft_interp_power = norm(fft_interp)^2;
+              fft_interp_max = max(abs(fft_interp));
+              pc1 = find(abs(fft_interp_max(1:end/2))>0.1*fft_interp_max);
+              pc2 = find(abs(fft_interp_max(end/2+1:end))>0.1*fft_interp_max);
+              
+              pc_temp = 
+              figure;
+              plot(abs(fft(h_frame_tps_interp)))
+              title('transform TPS interp');
+          end
           h_tps_es = ifft(h_frame_tps_interp(1:FFT_len));
           h_tps_es = h_tps_es(1:PN_total_len);
-          h_tps_es = channel_denoise2(h_tps_es, spn_h_denoise_alpha);
-          if i~= 1
-              h_tps_es = spn_h_smooth_alpha *h_tps_es+(1-spn_h_smooth_alpha)*spn_h_smooth_result;       
-          end 
-          h_tps_es(chan_len_spn+1:end)=0;
+          h_tps_es = channel_denoise2(h_tps_es, spn_tps_h_denoise_alpha);
           if debug             
-              h_real_tps = channel_real_freq(tps_position);
-              h_tps_mse = norm(h_frame_tps-h_real_tps)/norm(h_real_tps)
+              h_real_tps = channel_real_freq(tps_pos_current);
+              h_tps_mse = norm(h_frame_tps_current-h_real_tps)/norm(h_real_tps)
               h_iter_tps = fft(spn_h_smooth_result, FFT_len);
               h_iter_tps = h_iter_tps(tps_position);
               h_iter_tps_mse = norm(h_iter_tps-h_real_tps)/norm(h_real_tps)      
               figure;
               plot(abs(h_tps_es));
               title('单PN TPS估计结果'); 
-          end       
-          spn_h_smooth_result = (h_tps_es+h_iter)/2;
+          end
+          
+          h_tps_es(chan_len_spn+1:end)=0;
+          if i~= 1
+              h_tps_es = spn_h_smooth_alpha *h_tps_es+(1-spn_h_smooth_alpha)*spn_h_smooth_result;   
+              spn_h_smooth_result = h_tps_es;
+          else
+              spn_h_smooth_result = h_tps_es ;
+          end 
+                    
           channel_estimate_spn(i,:)=spn_h_smooth_result;
-                   
+          last_frame_h_tps = h_frame_tps_current;
+          
           if debug
               figure;
               plot(abs(spn_h_smooth_result));
