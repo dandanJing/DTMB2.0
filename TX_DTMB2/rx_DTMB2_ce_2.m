@@ -236,16 +236,24 @@ for SNR_IN = SNR %定义输入信噪比
               plot(abs(tps_H_fft));
               title('transform TPS H');
               fft_interp = fft(h_frame_tps_interp);
-              fft_interp_power = norm(fft_interp)^2;
-              fft_interp_max = max(abs(fft_interp));
-              pc1 = find(abs(fft_interp_max(1:end/2))>0.1*fft_interp_max);
-              pc2 = find(abs(fft_interp_max(end/2+1:end))>0.1*fft_interp_max);
-              
-              pc_temp = 
+              fft_interp_power = norm(fft_interp);
+              len = length( fft_interp);
+              R = sqrt(0.999);
+              for pc = 1:len/2
+                  pos = [1:pc len-pc+1:len];
+                  if norm(fft_interp(pos))/fft_interp_power >= R
+                      break;
+                  end
+              end
+              pc
               figure;
               plot(abs(fft(h_frame_tps_interp)))
               title('transform TPS interp');
+              h_frame_tps_interp_temp = zeros(1,len);
+              h_frame_tps_interp_temp(pos) = h_frame_tps_interp(pos);
+              %h_frame_tps_interp = ifft(h_frame_tps_interp_temp);
           end
+          
           h_tps_es = ifft(h_frame_tps_interp(1:FFT_len));
           h_tps_es = h_tps_es(1:PN_total_len);
           h_tps_es = channel_denoise2(h_tps_es, spn_tps_h_denoise_alpha);
