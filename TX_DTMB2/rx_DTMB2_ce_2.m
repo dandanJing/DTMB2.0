@@ -2,7 +2,7 @@
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48*8, 64QAM
 clear all,close all,clc
 
-debug = 1;
+debug = 0;
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 8;%定义多径类型
 SNR = [25];
@@ -216,7 +216,8 @@ for SNR_IN = SNR %定义输入信噪比
           %%TPS
           frame_data_recover_freq = fft(frame_data_recover);
           tps_pos_current = tps_position+mod(i,dimY)*dimX_len; 
-          h_frame_tps_current = frame_data_recover_freq(tps_pos_current)./tps_symbol;          
+          h_frame_tps_current = frame_data_recover_freq(tps_pos_current)./tps_symbol;
+
           if i ~= 1
              tps_pos_total = [tps_pos_current tps_position+mod(i-1,dimY)*dimX_len];
              h_tps_total = [h_frame_tps_current last_frame_h_tps];
@@ -226,34 +227,6 @@ for SNR_IN = SNR %定义输入信噪比
           end
           
           h_frame_tps_interp = interp1(tps_pos_total,h_tps_total,[1:FFT_len],'spline','extrap');
-          if debug
-              tps_temp = zeros(1,FFT_len);
-              tps_temp(tps_pos_current)=h_frame_tps_current;
-              tps_pos_temp = sort(tps_pos_current);
-              tps_h_sort = tps_temp(tps_pos_temp);
-              tps_H_fft = fft(tps_h_sort);
-              figure;
-              plot(abs(tps_H_fft));
-              title('transform TPS H');
-              fft_interp = fft(h_frame_tps_interp);
-              fft_interp_power = norm(fft_interp);
-              len = length( fft_interp);
-              R = sqrt(0.999);
-              for pc = 1:len/2
-                  pos = [1:pc len-pc+1:len];
-                  if norm(fft_interp(pos))/fft_interp_power >= R
-                      break;
-                  end
-              end
-              pc
-              figure;
-              plot(abs(fft(h_frame_tps_interp)))
-              title('transform TPS interp');
-              h_frame_tps_interp_temp = zeros(1,len);
-              h_frame_tps_interp_temp(pos) = h_frame_tps_interp(pos);
-              %h_frame_tps_interp = ifft(h_frame_tps_interp_temp);
-          end
-          
           h_tps_es = ifft(h_frame_tps_interp(1:FFT_len));
           h_tps_es = h_tps_es(1:PN_total_len);
           h_tps_es = channel_denoise2(h_tps_es, spn_tps_h_denoise_alpha);
