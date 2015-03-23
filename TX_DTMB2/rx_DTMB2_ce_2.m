@@ -206,8 +206,7 @@ for SNR_IN = SNR %定义输入信噪比
               end
           end
          
-          h_pn_conv = channel_pn_conv(PN, h_iter, chan_len_spn);
-                  
+          h_pn_conv = channel_pn_conv(PN, h_iter, chan_len_spn);                  
           frame_data_time =  Receive_data(PN_total_len+(1:FFT_len));
           pn_tail = h_pn_conv(PN_total_len+(1:chan_len_spn));
           data_tail =  Send_data_srrc_tx1_spn(start_pos+Frame_len+(1:chan_len_spn))-h_pn_conv(1:chan_len_spn);
@@ -226,7 +225,7 @@ for SNR_IN = SNR %定义输入信噪比
               tps_pos_total = [tps_pos_current tps_position+mod(i-1,dimY)*dimX_len tps_position+mod(i-2,dimY)*dimX_len];
              h_tps_total = [h_frame_tps_current last_frame_h_tps last2_frame_h_tps];
           else
-              tps_pos_total =  tps_pos_current;
+              tps_pos_total =  tps_pos_current;xdss"As
               h_tps_total =  h_frame_tps_current;
           end
           

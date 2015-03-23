@@ -2,7 +2,7 @@
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48*8, 64QAM
 clear all,close all,clc
 
-debug = 0;
+debug = 1;
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 16;%定义多径类型
 SNR = [20];
@@ -20,6 +20,7 @@ MAX_CHANNEL_LEN = PN_total_len;
 
 %%帧头信号
 PN = PN_gen*1.975;
+PN_binary = real(PN_gen)/1024;
 temp = ifft(pn512);
 DPN = temp*sqrt(var(PN)/var(temp));
 dpn_h_smooth_alpha = 1/4;
@@ -168,28 +169,48 @@ for SNR_IN = SNR %定义输入信噪比
           end   
           
           Receive_data = Send_data_srrc_tx1_spn(start_pos+(1:Frame_len));
-          pn_frame_temp = Receive_data(1:PN_total_len);
-          pn_frame_temp(1:chan_len_spn) = pn_frame_temp(1:chan_len_spn)-last_frame_tail;
+          %PN
+          pn_data = Receive_data(177+1:PN_total_len);
+          pn_binary_temp = PN_binary(177+1:end);
+          h_pn_es = zeros(1,255);
+          for mm = 1:255
+              h_pn_es(mm) = abs(sum(pn_data.*[pn_binary_temp(255-mm+2:end) pn_binary_temp(1:255-mm+1)]))/(1024*1.975*sqrt(2)*255);
+          end
+           h_pn_es = channel_denoise2( h_pn_es, spn_tps_h_denoise_alpha);
+          chan_len_spn = min(chan_len_estimate( h_pn_es),MAX_CHANNEL_LEN);
+           h_pn_es(chan_len_spn+1:end)=0;
+          if debug || i == sim_num-1
+              chan_len_spn
+              figure;
+              plot(abs(h_pn_es));
+              title('PN估计结果');
+          end
           
           %TPS
-          frame_data_recover = Receive_data(PN_total_len+1:end);
+          h_pn_conv = channel_pn_conv(PN, spn_h_smooth_result, chan_len_spn);                  
+          frame_data_time =  Receive_data(PN_total_len+(1:FFT_len));
+          pn_tail = h_pn_conv(PN_total_len+(1:chan_len_spn));
+          data_tail =  Send_data_srrc_tx1_spn(start_pos+Frame_len+(1:chan_len_spn))-h_pn_conv(1:chan_len_spn);
+          frame_data_recover =  frame_data_time;
+          frame_data_recover(1:chan_len_spn)=frame_data_recover(1:chan_len_spn)-pn_tail+data_tail;
           frame_data_recover_freq = fft(frame_data_recover);
           tps_pos_current = tps_position+mod(i,dimY)*dimX_len; 
           h_frame_tps_current = frame_data_recover_freq(tps_pos_current)./tps_symbol;
-          if i == 2
-             tps_pos_total = [tps_pos_current tps_position+mod(i-1,dimY)*dimX_len];
-             h_tps_total = [h_frame_tps_current last_frame_h_tps];
-          elseif i > 2
+          if i > 2
               tps_pos_total = [tps_pos_current tps_position+mod(i-1,dimY)*dimX_len tps_position+mod(i-2,dimY)*dimX_len];
              h_tps_total = [h_frame_tps_current last_frame_h_tps last2_frame_h_tps];
           else
               tps_pos_total =  tps_pos_current;
               h_tps_total =  h_frame_tps_current;
           end
-           h_frame_tps_interp = interp1(tps_pos_total,h_tps_total,[1:FFT_len],'spline','extrap');
-          h_tps_es = ifft(h_frame_tps_interp(1:FFT_len));
+          h_frame_tps(tps_pos_total) =  h_tps_total;
+          pos_temp = sort(tps_pos_total);
+          h_tps_modify = h_frame_tps(pos_temp);
+          h_tps_es = ifft(h_tps_modify);
           h_tps_es_total = h_tps_es;
-          h_tps_es = h_tps_es(1:PN_total_len);
+          len_temp = min(PN_total_len,length(h_tps_es));
+          h_tps_es = zeros(1,PN_total_len);
+          h_tps_es(1:len_temp) = h_tps_es_total(1:len_temp);
           h_tps_es = channel_denoise2(h_tps_es, spn_tps_h_denoise_alpha);
           if debug
               figure;
@@ -197,6 +218,7 @@ for SNR_IN = SNR %定义输入信噪比
               title('单PN TPS估计结果');
               pause;
           end
+          
           if i~= 1
               h_tps_es = spn_h_smooth_alpha *h_tps_es+(1-spn_h_smooth_alpha)*spn_h_smooth_result; 
               chan_len_spn = min(chan_len_estimate(h_tps_es),MAX_CHANNEL_LEN);
