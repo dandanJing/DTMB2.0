@@ -1,11 +1,11 @@
-%%channel estimation 
+%%channel estimation  拖尾拼接 TPS
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48*8, 64QAM
 clear all,close all,clc
 
 debug = 0;
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 8;%定义多径类型
-SNR = [25];
+debug_path_type = 16;%定义多径类型
+SNR = [20:5:30];
 
 %%参数定义
 PN_total_len = 432; %帧头长度,前同步88，后同步89
@@ -156,6 +156,7 @@ for SNR_IN = SNR %定义输入信噪比
       h_pn_conv = [];
       last_frame_tail = zeros(1,chan_len_spn);
       last_frame_h_tps = [];
+      last2_frame_h_tps = [];
       for i=1:sim_num-1
           close all;
           if debug || i == sim_num-1
@@ -218,9 +219,12 @@ for SNR_IN = SNR %定义输入信噪比
           tps_pos_current = tps_position+mod(i,dimY)*dimX_len; 
           h_frame_tps_current = frame_data_recover_freq(tps_pos_current)./tps_symbol;
 
-          if i ~= 1
+          if i == 2
              tps_pos_total = [tps_pos_current tps_position+mod(i-1,dimY)*dimX_len];
              h_tps_total = [h_frame_tps_current last_frame_h_tps];
+          elseif i > 2
+              tps_pos_total = [tps_pos_current tps_position+mod(i-1,dimY)*dimX_len tps_position+mod(i-2,dimY)*dimX_len];
+             h_tps_total = [h_frame_tps_current last_frame_h_tps last2_frame_h_tps];
           else
               tps_pos_total =  tps_pos_current;
               h_tps_total =  h_frame_tps_current;
@@ -228,6 +232,7 @@ for SNR_IN = SNR %定义输入信噪比
           
           h_frame_tps_interp = interp1(tps_pos_total,h_tps_total,[1:FFT_len],'spline','extrap');
           h_tps_es = ifft(h_frame_tps_interp(1:FFT_len));
+          h_tps_es_total = h_tps_es;
           h_tps_es = h_tps_es(1:PN_total_len);
           h_tps_es = channel_denoise2(h_tps_es, spn_tps_h_denoise_alpha);
           if debug             
@@ -238,7 +243,7 @@ for SNR_IN = SNR %定义输入信噪比
               h_iter_tps_mse = norm(h_iter_tps-h_real_tps)/norm(h_real_tps)      
               figure;
               plot(abs(h_tps_es));
-              title('单PN TPS估计结果'); 
+              title('单PN TPS估计结果');
           end
           
           h_tps_es(chan_len_spn+1:end)=0;
@@ -250,6 +255,7 @@ for SNR_IN = SNR %定义输入信噪比
           end 
                     
           channel_estimate_spn(i,:)=spn_h_smooth_result;
+          last2_frame_h_tps = last_frame_h_tps;
           last_frame_h_tps = h_frame_tps_current;
           
           if debug

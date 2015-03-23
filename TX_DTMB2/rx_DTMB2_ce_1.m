@@ -1,4 +1,4 @@
-%%channel estimation 
+%%channel estimation 拖尾拼接 无TPS
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48*8, 64QAM
 clear all,close all,clc
 
