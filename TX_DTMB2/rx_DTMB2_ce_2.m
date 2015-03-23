@@ -4,8 +4,8 @@ clear all,close all,clc
 
 debug = 0;
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 16;%定义多径类型
-SNR = [20:5:30];
+debug_path_type = 8;%定义多径类型
+SNR = [25:5:35];
 
 %%参数定义
 PN_total_len = 432; %帧头长度,前同步88，后同步89
@@ -61,6 +61,7 @@ dpn_chan_conv_snr = zeros(length(SNR),sim_num);
 spn_channel_mse = zeros(length(SNR),sim_num);
 spn_pn_rm_snr = zeros(length(SNR),sim_num);
 spn_chan_conv_snr = zeros(length(SNR),sim_num);
+spn_iter_tps_chan_mse = zeros(length(SNR),sim_num);
 
 channel_estimate_dpn = zeros(length(SNR),PN_total_len);
 channel_estimate_spn = zeros(length(SNR),PN_total_len);
@@ -206,7 +207,6 @@ for SNR_IN = SNR %定义输入信噪比
           end
          
           h_pn_conv = channel_pn_conv(PN, h_iter, chan_len_spn);
-          spn_h_freq = fft(h_iter,FFT_len);
                   
           frame_data_time =  Receive_data(PN_total_len+(1:FFT_len));
           pn_tail = h_pn_conv(PN_total_len+(1:chan_len_spn));
@@ -247,9 +247,15 @@ for SNR_IN = SNR %定义输入信噪比
           end
           
           h_tps_es(chan_len_spn+1:end)=0;
+          
+          mse_temp = norm(h_tps_es-h_iter)/norm(h_tps_es);
+          spn_iter_tps_chan_mse(mse_pos,i)=mse_temp;
           if i~= 1
-              h_tps_es = spn_h_smooth_alpha *h_tps_es+(1-spn_h_smooth_alpha)*spn_h_smooth_result;   
-              spn_h_smooth_result = h_tps_es;
+              if mse_temp > 0.1
+                 spn_h_smooth_result = spn_h_smooth_alpha *h_tps_es+(1-spn_h_smooth_alpha)*spn_h_smooth_result; 
+              else
+                 spn_h_smooth_result = spn_h_smooth_alpha *h_iter+(1-spn_h_smooth_alpha)*spn_h_smooth_result;
+              end
           else
               spn_h_smooth_result = h_tps_es ;
           end 
@@ -265,6 +271,7 @@ for SNR_IN = SNR %定义输入信噪比
               pause
           end
           
+          spn_h_freq = fft(spn_h_smooth_result,FFT_len);
           spn_channel_mse(mse_pos,i) = norm(spn_h_smooth_result-channel_real)/norm(channel_real);
           %计算当前帧的拖尾，以在下一帧消除其对于PN估计的影响
           frame_data_eq_freq = fft(frame_data_recover)./spn_h_freq;

@@ -2,7 +2,7 @@
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48*8, 64QAM
 clear all,close all,clc
 
-debug = 1;
+debug = 0;
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 16;%定义多径类型
 SNR = [20];
@@ -172,7 +172,8 @@ for SNR_IN = SNR %定义输入信噪比
           pn_frame_temp(1:chan_len_spn) = pn_frame_temp(1:chan_len_spn)-last_frame_tail;
           
           %TPS
-          frame_data_recover_freq = fft(Receive_data(PN_total_len+1:end));
+          frame_data_recover = Receive_data(PN_total_len+1:end);
+          frame_data_recover_freq = fft(frame_data_recover);
           tps_pos_current = tps_position+mod(i,dimY)*dimX_len; 
           h_frame_tps_current = frame_data_recover_freq(tps_pos_current)./tps_symbol;
           if i == 2
@@ -190,65 +191,78 @@ for SNR_IN = SNR %定义输入信噪比
           h_tps_es_total = h_tps_es;
           h_tps_es = h_tps_es(1:PN_total_len);
           h_tps_es = channel_denoise2(h_tps_es, spn_tps_h_denoise_alpha);
-          chan_len_spn = min(chan_len_estimate(h_tps_es),MAX_CHANNEL_LEN);
-          h_tps_es(chan_len_spn+1:end)=0;
           if debug
               figure;
               plot(abs(h_tps_es));
               title('单PN TPS估计结果');
+              pause;
           end
-%           spn_channel_mse(mse_pos,i) = norm(spn_h_smooth_result-channel_real)/norm(channel_real);
-%           %计算当前帧的拖尾，以在下一帧消除其对于PN估计的影响
-%           frame_data_eq_freq = fft(frame_data_recover)./spn_h_freq;
-%           frame_data_eq_time = ifft(frame_data_eq_freq);
-%           frame_data_tail =  frame_data_eq_time(FFT_len-PN_total_len+(1:PN_total_len));
-%           data_tail_chan_conv = channel_pn_conv(frame_data_tail,spn_h_smooth_result, chan_len_spn);
-%           last_frame_tail = data_tail_chan_conv(PN_total_len+(1:chan_len_spn));
-%           
-%           %真实信道与真实数据的卷积后的时域和频域结果
-%           data_real_freq =  data_transfer((i-1)*FFT_len+(1:FFT_len)).*channel_real_freq;
-%           data_real_time = ifft(data_real_freq);
-% 
-%           spn_pn_rm_snr(mse_pos,i) = estimate_SNR(frame_data_recover,data_real_time);
-%           spn_temp = data_transfer((i-1)*FFT_len+(1:FFT_len)).*spn_h_freq;
-%           spn_chan_conv_snr(mse_pos,i) = estimate_SNR(spn_temp,data_real_freq);
+          if i~= 1
+              h_tps_es = spn_h_smooth_alpha *h_tps_es+(1-spn_h_smooth_alpha)*spn_h_smooth_result; 
+              chan_len_spn = min(chan_len_estimate(h_tps_es),MAX_CHANNEL_LEN);
+              h_tps_es(chan_len_spn+1:end)=0;
+              spn_h_smooth_result = h_tps_es;
+          else
+              spn_h_smooth_result = h_tps_es ;
+          end 
+          
+          channel_estimate_spn(i,:)=spn_h_smooth_result;
+          last2_frame_h_tps = last_frame_h_tps;
+          last_frame_h_tps = h_frame_tps_current;
+          
+          spn_h_freq = fft(spn_h_smooth_result,FFT_len);
+          spn_channel_mse(mse_pos,i) = norm(spn_h_smooth_result-channel_real)/norm(channel_real);
+          %计算当前帧的拖尾，以在下一帧消除其对于PN估计的影响
+          frame_data_eq_freq = fft(frame_data_recover)./spn_h_freq;
+          frame_data_eq_time = ifft(frame_data_eq_freq);
+          frame_data_tail =  frame_data_eq_time(FFT_len-PN_total_len+(1:PN_total_len));
+          data_tail_chan_conv = channel_pn_conv(frame_data_tail,spn_h_smooth_result, chan_len_spn);
+          last_frame_tail = data_tail_chan_conv(PN_total_len+(1:chan_len_spn));
+          
+          %真实信道与真实数据的卷积后的时域和频域结果
+          data_real_freq =  data_transfer((i-1)*FFT_len+(1:FFT_len)).*channel_real_freq;
+          data_real_time = ifft(data_real_freq);
+
+          spn_pn_rm_snr(mse_pos,i) = estimate_SNR(frame_data_recover,data_real_time);
+          spn_temp = data_transfer((i-1)*FFT_len+(1:FFT_len)).*spn_h_freq;
+          spn_chan_conv_snr(mse_pos,i) = estimate_SNR(spn_temp,data_real_freq);
 
           start_pos = start_pos + Frame_len;
       end
-%       spn_mean_mse(mse_pos) = mean(spn_channel_mse(mse_pos,spn_start_frame:spn_end_frame))
-%       spn_pnrm_SNR(mse_pos) = mean(spn_pn_rm_snr(mse_pos,spn_start_frame:spn_end_frame))
-%       spn_pn_chan_conv_freq_SNR(mse_pos) = mean(spn_chan_conv_snr(mse_pos,spn_start_frame:spn_end_frame))
-%       temp1 = 1/(10^(spn_pnrm_SNR(mse_pos)/10))+ 1/(10^(spn_pn_chan_conv_freq_SNR(mse_pos)/10));
-%       spn_ce_SNR(mse_pos) = 10*log10(1/temp1);
+      spn_mean_mse(mse_pos) = mean(spn_channel_mse(mse_pos,spn_start_frame:spn_end_frame))
+      spn_pnrm_SNR(mse_pos) = mean(spn_pn_rm_snr(mse_pos,spn_start_frame:spn_end_frame))
+      spn_pn_chan_conv_freq_SNR(mse_pos) = mean(spn_chan_conv_snr(mse_pos,spn_start_frame:spn_end_frame))
+      temp1 = 1/(10^(spn_pnrm_SNR(mse_pos)/10))+ 1/(10^(spn_pn_chan_conv_freq_SNR(mse_pos)/10));
+      spn_ce_SNR(mse_pos) = 10*log10(1/temp1);
       mse_pos = mse_pos +1;
 end
-% spn_ce_SNR
-% dpn_ce_SNR
-% 
-% figure;
-% subplot(1,2,1);
-% plot(abs(dpn_h_smooth_result));
-% title('双PN信道估计结果');
-% subplot(1,2,2);
-% plot(abs(spn_h_smooth_result));
-% title('单PN信道估计结果');
-% 
-% figure;
-% subplot(1,2,1)
-% semilogy(SNR,spn_mean_mse,'r*-');
-% title('单PN估计MSE');
-% subplot(1,2,2)
-% semilogy(SNR,dpn_mean_mse,'k*-');
-% title('双PN估计MSE');
-% 
-% figure;hold on;
-% plot(SNR,spn_pnrm_SNR,'r*-');
-% plot(SNR,dpn_pnrm_SNR,'k*-');
-% legend('单PN','双PN');
-% title('数据循环重构后的信噪比');
-% 
-% figure;hold on;
-% plot(SNR,spn_pn_chan_conv_freq_SNR,'r*-');
-% plot(SNR,dpn_pn_chan_conv_freq_SNR,'k*-');
-% legend('单PN','双PN');
-% title('信道估计误差的信噪比');
+ spn_ce_SNR
+dpn_ce_SNR
+
+figure;
+subplot(1,2,1);
+plot(abs(dpn_h_smooth_result));
+title('双PN信道估计结果');
+subplot(1,2,2);
+plot(abs(spn_h_smooth_result));
+title('单PN信道估计结果');
+
+figure;
+subplot(1,2,1)
+semilogy(SNR,spn_mean_mse,'r*-');
+title('单PN估计MSE');
+subplot(1,2,2)
+semilogy(SNR,dpn_mean_mse,'k*-');
+title('双PN估计MSE');
+
+figure;hold on;
+plot(SNR,spn_pnrm_SNR,'r*-');
+plot(SNR,dpn_pnrm_SNR,'k*-');
+legend('单PN','双PN');
+title('数据循环重构后的信噪比');
+
+figure;hold on;
+plot(SNR,spn_pn_chan_conv_freq_SNR,'r*-');
+plot(SNR,dpn_pn_chan_conv_freq_SNR,'k*-');
+legend('单PN','双PN');
+title('信道估计误差的信噪比');
