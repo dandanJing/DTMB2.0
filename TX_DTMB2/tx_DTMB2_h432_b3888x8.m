@@ -88,9 +88,9 @@ Send_data_srrc_tx2 = data_aft_map_tx2;
 Send_data_srrc_tx1_ch_dpn = filter(channelFilter,1,Send_data_srrc_tx2);%¹ýÐÅµÀ
 Send_data_srrc_tx1_dpn = awgn(Send_data_srrc_tx1_ch_dpn,SNR_IN,'measured');
 
-matfilename = strcat('DTMB_data_awgn_SNR',num2str(SNR_IN),'.mat');
+matfilename = strcat('DTMB2_data_awgn_SNR',num2str(SNR_IN),'.mat');
 if debug_multipath
-    matfilename = strcat('DTMB_data_multipath_new',num2str(debug_path_type),'SNR',num2str(SNR_IN),'.mat');
+    matfilename = strcat('DTMB2_data_multipath_new',num2str(debug_path_type),'SNR',num2str(SNR_IN),'.mat');
 end
 save(matfilename,'Send_data_srrc_tx1_spn','Send_data_srrc_tx1_ch_spn','Send_data_srrc_tx1_ch_dpn','Send_data_srrc_tx1_dpn','data_transfer',...
 'Super_Frame');
