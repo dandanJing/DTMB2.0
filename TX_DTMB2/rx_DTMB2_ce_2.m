@@ -218,19 +218,22 @@ for SNR_IN = SNR %定义输入信噪比
           tps_pos_current = tps_position+mod(i,dimY)*dimX_len; 
           h_frame_tps_current = frame_data_recover_freq(tps_pos_current)./tps_symbol;
 
-          if i == 2
-             tps_pos_total = [tps_pos_current tps_position+mod(i-1,dimY)*dimX_len];
-             h_tps_total = [h_frame_tps_current last_frame_h_tps];
-          elseif i > 2
+          if i > 2
               tps_pos_total = [tps_pos_current tps_position+mod(i-1,dimY)*dimX_len tps_position+mod(i-2,dimY)*dimX_len];
              h_tps_total = [h_frame_tps_current last_frame_h_tps last2_frame_h_tps];
           else
-              tps_pos_total =  tps_pos_current;xdss"As
+              tps_pos_total =  tps_pos_current;
               h_tps_total =  h_frame_tps_current;
           end
           
-          h_frame_tps_interp = interp1(tps_pos_total,h_tps_total,[1:FFT_len],'spline','extrap');
-          h_tps_es = ifft(h_frame_tps_interp(1:FFT_len));
+          h_frame_tps_temp = zeros(1,FFT_len);
+          h_frame_tps_temp(tps_pos_total) = h_tps_total;
+          pos_temp = sort(tps_pos_total);
+          h_frame_tps_interp = h_frame_tps_temp(pos_temp);
+          h_tps_es_temp = ifft(h_frame_tps_interp);
+          h_tps_es  = zeros(1,PN_total_len);
+          len_temp = min(PN_total_len,length(h_tps_es_temp));
+          h_tps_es(1:len_temp)=h_tps_es_temp(1:len_temp);
           h_tps_es_total = h_tps_es;
           h_tps_es = h_tps_es(1:PN_total_len);
           h_tps_es = channel_denoise2(h_tps_es, spn_tps_h_denoise_alpha);
