@@ -3,9 +3,9 @@
 clear all,close all,clc
 
 debug = 0;
-debug_multipath = 0;%定义是否考虑多径
+debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 16;%定义多径类型
-SNR = [15:5:25];
+SNR = [20:5:30];
 for SNR_IN = SNR  %定义输入信噪比
 
 %%参数定义

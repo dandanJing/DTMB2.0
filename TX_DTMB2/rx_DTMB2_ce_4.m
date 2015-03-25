@@ -19,7 +19,7 @@ iter_num = 2; %迭代次数
 MAX_CHANNEL_LEN = PN_total_len;
 
 %%帧头信号
-PN = PN_gen*1.975;
+PN = PN_gen_old*1.975;
 PN_binary = conj(PN_gen)/1024;
 temp = ifft(pn512);
 DPN = temp*sqrt(var(PN)/var(temp));

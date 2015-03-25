@@ -42,8 +42,6 @@ if debug_multipath
     channelFilter = multipath_new(debug_path_type,1/7.56,1,0);
 end
 
-
- 
 %%data
 start_pos = 1;
 start_pos_1 = 1;

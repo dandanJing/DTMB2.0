@@ -3,9 +3,9 @@
 clear all,close all,clc
 
 debug = 0;
-debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 8;%定义多径类型
-SNR = [25:5:35];
+debug_multipath = 0;%定义是否考虑多径
+debug_path_type = 16;%定义多径类型
+SNR = [15:5:25];
 
 %%参数定义
 PN_total_len = 432; %帧头长度,前同步88，后同步89
@@ -19,7 +19,7 @@ iter_num = 2; %迭代次数
 MAX_CHANNEL_LEN = PN_total_len;
 
 %%帧头信号
-PN = PN_gen*1.975;
+PN = PN_gen_old*1.975;
 temp = ifft(pn512);
 DPN = temp*sqrt(var(PN)/var(temp));
 dpn_h_smooth_alpha = 1/4;
@@ -223,7 +223,7 @@ for SNR_IN = SNR %定义输入信噪比
              h_tps_total = [h_frame_tps_current last_frame_h_tps last2_frame_h_tps];
           else
               tps_pos_total =  tps_pos_current;
-              h_tps_total =  h_frame_tps_current;
+              h_tps_total =  h_frame_tps_current;             
           end
           
           h_frame_tps_temp = zeros(1,FFT_len);

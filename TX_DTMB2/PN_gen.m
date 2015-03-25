@@ -5,7 +5,7 @@ if pn_mode == 0 %%PN432
     PN_total=432;
     PN_len=255;
     PN_cyclic_Len=PN_total-PN_len;
-    frame_num_md =  mod(frame_num-1,256)+1;
+    frame_num_md =  mod(frame_num-1,225)+1;
     PN_Selected = PN_rom(frame_num_md, 2:PN_len+1);
     PN = [PN_Selected(PN_len - PN_cyclic_Len + 1:end),PN_Selected];
 else
