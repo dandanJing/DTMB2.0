@@ -2,10 +2,10 @@
 %%DTMB2.0数据发送 帧头432，帧体3888*8，TPS 48*8, 64QAM
 clear all,close all,clc
 
-debug = 1;
+debug = 0;
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 16;%定义多径类型
-SNR = [20];
+SNR = [20:5:30];
 
 %%参数定义
 PN_total_len = 432; %帧头长度,前同步88，后同步89
@@ -20,7 +20,7 @@ MAX_CHANNEL_LEN = PN_total_len;
 
 %%帧头信号
 PN = PN_gen*1.975;
-PN_binary = real(PN_gen)/1024;
+PN_binary = conj(PN_gen)/1024;
 temp = ifft(pn512);
 DPN = temp*sqrt(var(PN)/var(temp));
 dpn_h_smooth_alpha = 1/4;
@@ -31,8 +31,10 @@ spn_h_denoise_alpha_iter1 = 0.2;
 spn_tps_h_denoise_alpha = 1/256;
 spn_h_smooth_alpha = 1/4;
 spn_h_smooth_result = zeros(1,PN_total_len);
+spn_h_pn_smooth_result = zeros(1,PN_total_len);
 spn_h_off_thresh = 0.02;
-
+spn_h_len_alpha_pn = 0.03;
+spn_h_len_alpha_TPS = 0.03;
 %%真实信道
 if debug_multipath
     channelFilter = multipath_new(debug_path_type,1/7.56,1,0);
@@ -156,6 +158,7 @@ for SNR_IN = SNR %定义输入信噪比
       start_pos = 0;
       h_iter = zeros(1,PN_total_len);
       chan_len_spn = PN_total_len;
+      chan_len_spn_pn = PN_total_len;
       h_pn_conv = [];
       last_frame_tail = zeros(1,chan_len_spn);
       last_frame_h_tps = [];
@@ -174,13 +177,25 @@ for SNR_IN = SNR %定义输入信噪比
           pn_binary_temp = PN_binary(177+1:end);
           h_pn_es = zeros(1,255);
           for mm = 1:255
-              h_pn_es(mm) = abs(sum(pn_data.*[pn_binary_temp(255-mm+2:end) pn_binary_temp(1:255-mm+1)]))/(1024*1.975*sqrt(2)*255);
+              h_pn_es(mm) = (sum(pn_data.*[pn_binary_temp(255-mm+2:end) pn_binary_temp(1:255-mm+1)]))/(1024*1.975*2*255);
           end
-           h_pn_es = channel_denoise2( h_pn_es, spn_tps_h_denoise_alpha);
-          chan_len_spn = min(chan_len_estimate( h_pn_es),MAX_CHANNEL_LEN);
-           h_pn_es(chan_len_spn+1:end)=0;
+           h_pn_es = channel_denoise2(h_pn_es, spn_tps_h_denoise_alpha);
+           if i ~= 1
+                h_pn_es = spn_h_smooth_alpha*h_pn_es+(1-spn_h_smooth_alpha)*spn_h_pn_smooth_result;
+           end
+           if debug || i == sim_num-1
+              figure;
+              plot(abs(h_pn_es));
+              title('PN原始估计结果');
+          end
+           chan_len_spn_pn_old =  chan_len_spn_pn;
+           chan_len_spn_pn = min(chan_len_estimate_new(h_pn_es, spn_h_len_alpha_pn),MAX_CHANNEL_LEN);
+           h_pn_es(chan_len_spn_pn+1:end)=0;
+           spn_h_pn_smooth_result = h_pn_es;
+           
           if debug || i == sim_num-1
-              chan_len_spn
+              spn_h_len_alpha_pn
+              chan_len_spn_pn
               figure;
               plot(abs(h_pn_es));
               title('PN估计结果');
@@ -212,33 +227,36 @@ for SNR_IN = SNR %定义输入信噪比
           h_tps_es = zeros(1,PN_total_len);
           h_tps_es(1:len_temp) = h_tps_es_total(1:len_temp);
           h_tps_es = channel_denoise2(h_tps_es, spn_tps_h_denoise_alpha);
+          if i~= 1
+              h_tps_es = spn_h_smooth_alpha *h_tps_es+(1-spn_h_smooth_alpha)*spn_h_smooth_result;
+          end
+          chan_len_spn_old =  chan_len_spn;
+          chan_len_spn = min(chan_len_estimate_new(h_tps_es, spn_h_len_alpha_TPS),MAX_CHANNEL_LEN);
+           h_tps_es(chan_len_spn+1:end) = 0;
+          spn_h_smooth_result = h_tps_es;
           if debug
+              chan_len_spn
               figure;
               plot(abs(h_tps_es));
               title('单PN TPS估计结果');
               pause;
           end
           
-          if i~= 1
-              h_tps_es = spn_h_smooth_alpha *h_tps_es+(1-spn_h_smooth_alpha)*spn_h_smooth_result; 
-              chan_len_spn = min(chan_len_estimate(h_tps_es),MAX_CHANNEL_LEN);
-              h_tps_es(chan_len_spn+1:end)=0;
-              spn_h_smooth_result = h_tps_es;
-          else
-              spn_h_smooth_result = h_tps_es ;
-          end 
-          
-          channel_estimate_spn(i,:)=spn_h_smooth_result;
+          h_result = spn_h_smooth_result;
+          if chan_len_spn < 200
+              h_result(1:length(spn_h_pn_smooth_result)) = spn_h_pn_smooth_result;
+          end  
+          channel_estimate_spn(i,:)= h_result;
           last2_frame_h_tps = last_frame_h_tps;
           last_frame_h_tps = h_frame_tps_current;
           
-          spn_h_freq = fft(spn_h_smooth_result,FFT_len);
-          spn_channel_mse(mse_pos,i) = norm(spn_h_smooth_result-channel_real)/norm(channel_real);
+          spn_h_freq = fft(h_result,FFT_len);
+          spn_channel_mse(mse_pos,i) = norm(h_result-channel_real)/norm(channel_real);
           %计算当前帧的拖尾，以在下一帧消除其对于PN估计的影响
           frame_data_eq_freq = fft(frame_data_recover)./spn_h_freq;
           frame_data_eq_time = ifft(frame_data_eq_freq);
           frame_data_tail =  frame_data_eq_time(FFT_len-PN_total_len+(1:PN_total_len));
-          data_tail_chan_conv = channel_pn_conv(frame_data_tail,spn_h_smooth_result, chan_len_spn);
+          data_tail_chan_conv = channel_pn_conv(frame_data_tail,h_result, chan_len_spn);
           last_frame_tail = data_tail_chan_conv(PN_total_len+(1:chan_len_spn));
           
           %真实信道与真实数据的卷积后的时域和频域结果
@@ -260,6 +278,10 @@ for SNR_IN = SNR %定义输入信噪比
 end
  spn_ce_SNR
 dpn_ce_SNR
+
+figure;
+plot(abs(spn_h_pn_smooth_result));
+title('PN信道估计结果');
 
 figure;
 subplot(1,2,1);
