@@ -1,9 +1,9 @@
 clear all,close all,clc
 
-debug = 1;
-debug_multipath = 1;%定义是否考虑多径
+debug = 0;
+debug_multipath = 0;%定义是否考虑多径
 debug_path_type = 16;%定义多径类型
-SNR = [25];
+SNR = [20];
 
 %%参数定义
 PN_total_len = 432; %帧头长度,前同步88，后同步89
@@ -54,6 +54,7 @@ for SNR_IN = SNR %定义输入信噪比
     frame_h_tps_delay = [];
     frame_h_tps_delay2 = [];
     frame_h_tps_delay3 = [];
+    h_iter = zeros(1,chan_len_spn);
     for i=1:sim_num-1
           close all;
           if debug || i == sim_num-1
@@ -62,78 +63,41 @@ for SNR_IN = SNR %定义输入信噪比
               title('真实信道估计');
           end   
           
-          if i == 226
-              test1 = 2;
-          end
+%           if i == 226
+%               test1 = 2;
+%           end
           Receive_data = Send_data_srrc_tx1_spn(start_pos+(1:Frame_len));
           pn_frame_temp = Receive_data(1:PN_total_len);
           pn_frame_temp(1:chan_len_spn) = pn_frame_temp(1:chan_len_spn)-last_frame_tail;
+          PN = PN_gen(i,0)*1.975;
+          if i==35
+              a = 1;
+          end
           for k = 1:iter_num
-              if k == 1
-                  pn_rv_temp = [pn_frame_temp Receive_data(PN_total_len+1:PN_total_len+chan_len_spn)];
-                  PN = PN_gen(i,0)*1.975;
-                  h_iter = channel_estimate_A(pn_rv_temp,PN, 2048,0);
-                  spn_h_iter1_denoise_alpha = 0.1;
-                  h_iter = channel_denoise2(h_iter, spn_h_iter1_denoise_alpha);
-                  h_iter = h_iter(1:PN_total_len);
-                  if debug 
-                      figure;
-                      plot(abs(h_iter));
-                      title('单PN第一次迭代初始估计结果');             
-                  end
-                  if i == 1
-                      chan_len_spn = min(chan_len_estimate(h_iter),MAX_CHANNEL_LEN); 
-                      while  spn_h_iter1_denoise_alpha < 0.35 && chan_len_spn > 200
-                          spn_h_iter1_denoise_alpha = spn_h_iter1_denoise_alpha+0.05;
-                          h_iter = channel_denoise2(h_iter, spn_h_iter1_denoise_alpha);
-                          chan_len_spn = min(chan_len_estimate(h_iter),MAX_CHANNEL_LEN);
-                      end
-                  end                                    
-                  h_iter(chan_len_spn+1:end)=0;
-                  if debug 
-                      chan_len_spn
-                      figure;
-                      plot(abs(h_iter));
-                      title('单PN第一次迭代估计结果');             
-                  end
-              else
-                  h_pn_conv = channel_pn_conv(PN,h_iter,chan_len_spn);
-                  eq_in_data = Receive_data(PN_total_len+1:end);
-                  data_tail =  Send_data_srrc_tx1_spn(start_pos+Frame_len+(1:chan_len_spn))-h_pn_conv(1:chan_len_spn);
-                  eq_in_data(1:chan_len_spn)=eq_in_data(1:chan_len_spn)-h_pn_conv(PN_total_len+(1:chan_len_spn))+data_tail;
-                  eq_in_data_freq = fft(eq_in_data);
-                  h_freq = fft( h_iter,FFT_len);
-                  eq_data_freq = eq_in_data_freq./h_freq;
-                  eq_data_freq(abs(h_freq)<spn_h_freq_off_thresh) = 0;
-                  eq_data_time = ifft(eq_data_freq);
-                  h_freq_2pnlen =  fft( h_iter,2*PN_total_len);
-                  fft_data_freq = fft(eq_data_time(1:PN_total_len),2*PN_total_len);
-                  data_chan_conv = ifft(fft_data_freq.* h_freq_2pnlen);
-                  pn_in = [pn_frame_temp Receive_data(PN_total_len+(1:chan_len_spn))];
-                  pn_in(PN_total_len+(1:chan_len_spn))=pn_in(PN_total_len+(1:chan_len_spn))-data_chan_conv(1:chan_len_spn);
-                  h_iter = channel_estimate_B(pn_in,PN, 2048,0);
-                  h_iter = h_iter(1:PN_total_len);
-                  h_iter = channel_denoise2(h_iter, spn_h_denoise_alpha);
-                  if i ~= 1
-                     h_iter = spn_h_smooth_alpha *h_iter+(1-spn_h_smooth_alpha)*spn_h_smooth_result;
-                  end               
-                  h_iter(chan_len_spn+1:end)=0;
-                  if debug 
-                      figure;
-                      plot(abs(h_iter(1:PN_total_len)));
-                      title('单PN迭代估计结果');  
-                  end
+              h_pn_conv = channel_pn_conv(PN,h_iter,chan_len_spn);
+              pn_in = [pn_frame_temp h_pn_conv(PN_total_len+(1:chan_len_spn))];             
+              h_iter = channel_estimate_B(pn_in,PN, 2048,0);
+              h_iter = h_iter(1:PN_total_len);
+              h_iter = channel_denoise2(h_iter, spn_h_denoise_alpha);
+              if i ~= 1
+                 h_iter = spn_h_smooth_alpha *h_iter+(1-spn_h_smooth_alpha)*spn_h_smooth_result;
+              end
+              h_iter(chan_len_spn+1:end)=0;
+              if debug && k==iter_num
+                  figure;
+                  plot(abs(h_iter(1:PN_total_len)));
+                  title('单PN平滑迭代估计结果');  
               end
           end
           
           h_frame_tps_current = [];
-          spn_h_smooth_result = h_iter;
-          channel_estimate_spn(i,:)=spn_h_smooth_result;
+          channel_estimate_spn(i,:)=h_iter;
           if i <= 8
-              chan_len_spn = chan_len_estimate_2(channel_estimate_spn(1:i-1,:),spn_h_smooth_result,i-1,debug);
+              chan_len_spn = chan_len_estimate_2(channel_estimate_spn(1:i-1,:),h_iter,i-1,0);
           else
-              chan_len_spn = chan_len_estimate_2(channel_estimate_spn(i-8:i-1,:),spn_h_smooth_result,8,debug);
+              chan_len_spn = chan_len_estimate_2(channel_estimate_spn(i-8:i-1,:),h_iter,8,0);
           end
+          spn_h_smooth_result = h_iter;
           if debug
               pause;
           end

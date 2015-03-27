@@ -1,4 +1,4 @@
-function chlen =chan_len_estimate_2(h_old,h_current,len)
+function chlen =chan_len_estimate_2(h_old,h_current,len,debug)
 
 count_frame = 1;
 h_temp = h_current;
@@ -15,6 +15,21 @@ for kk = 1:len_temp
 end
 abs_h_temp = abs(h_temp);
 max_h = max(abs_h_temp);
-alpha = 0.33 - (count_frame-1)*0.04;
+alpha = 0.33 - (count_frame-1)*0.03;
 thresh = max_h * alpha;
 chlen = max(find(abs_h_temp >= thresh));
+if chlen < length(h_current)
+    thresh_num = length(find(abs(h_current)>0.15*max(abs(h_current))));
+    if thresh_num > 1
+        chlen = chlen + 20;
+        chlen = min(chlen,length(h_current));
+    end
+end 
+if debug
+    chlen
+    alpha
+    count_frame
+    figure;
+    plot(abs(abs_h_temp));
+    title('PN长度估计时的累加结果');
+end
