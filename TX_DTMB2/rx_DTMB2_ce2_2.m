@@ -12,7 +12,7 @@ DPN_len = 512;
 load pn256_pn512.mat
 FFT_len = 3888*8; %帧体所需的FFT、IFFT长度
 Frame_len = PN_total_len + FFT_len; %帧长
-sim_num= 1000; %仿真的帧数
+sim_num= 400; %仿真的帧数
 iter_num = 3; %迭代次数
 MAX_CHANNEL_LEN = PN_total_len;
 

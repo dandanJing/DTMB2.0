@@ -10,7 +10,8 @@ end
 tps_value_temp = 1- 2*m_sequence(1:48*8);
 
 block_len = 96;
-start_pos = block_len - mod(frame_num-1,4)*24;
+start_pos = 1+mod(frame_num-1,4)*24;
+%start_pos = block_len - mod(frame_num-1,4)*24;
 scater_pos = start_pos:block_len:3888*8;
 conti_len = 30;
 scater_min = min(scater_pos);

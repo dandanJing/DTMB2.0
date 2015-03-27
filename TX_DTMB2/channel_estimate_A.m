@@ -6,7 +6,7 @@ function h_out = channel_estimate_A(data_in, PN, FFT_length,debug)
  H_F =  fft_PN_R./fft_PN;
  
 %Æ½»¬ÂË²¨
-freq_thres = 3.6;
+freq_thres = max(abs(fft_PN))*0.001;
 H_F(abs(fft_PN)<freq_thres)=0;
 h_coarse = ifft(H_F);
 mmse_weight = 0.99;
@@ -14,7 +14,6 @@ h_thresh = 0.01;
 h_mmse_filter = channel_mmse_filter(h_coarse, mmse_weight);
 h_out = h_mmse_filter.';
 h_max = max(abs(h_out));
-%h_out(abs(h_out)<h_max*0.01)=0;
 h_out(abs(h_out)>h_max*h_thresh)=h_coarse(abs(h_out)>h_max*h_thresh);
 if debug
 figure;
