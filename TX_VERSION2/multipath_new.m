@@ -1,11 +1,12 @@
 %function: multipath channel model with ideal low pass filtering and M-times oversampling
-%mp_mode: Medium-Echo Static (1--6); Violence-Echo Static (7--10); Brazil Static (11--15); dvb-t rayleigh/rician (16--17)
+%mp_mode: Medium-Echo Static (1--6); Violence-Echo Static (7--10); Brazil
+%Static (11--15); dvb-t rayleigh/rician (16--17) 18£ºdvb-T2 0dB echo
 %unit_delay: Ts=1/Fs
 %M: oversampling factor
 %updated by kewu peng on 2008-07-24
 function h = multipath_new(mp_mode, unit_delay, M, dbg)
 
-if (mp_mode>17 || mp_mode<1) h=1; return; end
+if (mp_mode>18 || mp_mode<1) h=1; return; end
 
 path_scale(1:14,1:6)=0; %in db
 path_delay(1:14,1:6)=0; %in us
@@ -62,6 +63,9 @@ path_delay(14,1:6)=[ 0.15  0.63  2.22  3.05  5.86  5.93];
 
 path_scale(15,1:6)=[    0     0     0   -80   -80   -80];
 path_delay(15,1:6)=[  0.0   1.0   2.0   3.0   4.0   5.0];
+
+path_scale(18,1:2)=[    0     0  ];
+path_delay(18,1:2)=[  0.0   51.5  ];
 
 %tdb=[-7.8 -24.8 -15.0 -10.4 -11.7 -24.2 -16.5 -25.8 -14.7 -7.9 -10.6  -9.1 -11.6 -12.9 -15.3 -16.5 -12.4 -18.7 -13.2 -11.7]; t=10.^(tdb/20); norm(t)
 %attenuation, delay (in us) and phase (in rad) values

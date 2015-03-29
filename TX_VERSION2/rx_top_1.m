@@ -2,15 +2,14 @@ clear all,close all,clc
 
 debug = 0;
 debug_multipath = 1;%定义是否考虑多径
-debug_path_type = 16;%定义多径类型
-SNR = [20];
+debug_path_type = 18;%定义多径类型
+SNR = [25:5:35];
 
 %%参数定义
 PN_total_len = 432; %帧头长度,前同步88，后同步89
 FFT_len = 3888*8; %帧体所需的FFT、IFFT长度
 Frame_len = PN_total_len + FFT_len; %帧长
 sim_num= 1000; %仿真的帧数
-iter_num = 3; %迭代次数
 MAX_CHANNEL_LEN = PN_total_len;
 load TPS_symbol.mat
 
@@ -28,7 +27,7 @@ channel_real_freq = fft(channel_real,FFT_len);
 spn_start_measure_mse_frame = 50;
 spn_end_measure_mse_frame = sim_num-9;
 spn_h_freq_off_thresh = 0.02;
-spn_h_denoise_alpha = 1/256;
+spn_h_denoise_alpha = 0.0005;
 spn_h_smooth_alpha = 1/4;
 
 mse_pos = 1;
@@ -117,29 +116,6 @@ for SNR_IN = SNR %定义输入信噪比
           else
              [h_iter chan_len_spn] = chan_estimate(channel_estimate_spn(i-8:i-1,:),h_iter,8,0);
              h_iter = spn_h_smooth_alpha*h_iter+(1-spn_h_smooth_alpha)*spn_h_smooth_result;
-          end
-          
-          if debug
-              figure;
-              plot(abs(h_iter));
-              title('离散TPS估计结果');
-          end
-          
-          %continual tps
-          h_freq = fft(h_iter,FFT_len);        
-          if i>= 4
-              temp = (tps_conti_div+frame_tps_div_continual_delay+frame_tps_div_continual_delay2+frame_tps_div_continual_delay3);
-              h_freq(tps_conti_pos) = temp/4;
-          else
-              h_freq(tps_conti_pos) = tps_conti_div;
-          end
-          h_iter = ifft(h_freq);
-          h_iter = h_iter(1:PN_total_len);
-          h_iter = channel_denoise(h_iter, spn_h_denoise_alpha);
-          if i <= 8
-             [h_iter chan_len_spn] = chan_estimate(channel_estimate_spn(1:i-1,:),h_iter,i-1,0);
-          else
-             [h_iter chan_len_spn] = chan_estimate(channel_estimate_spn(i-8:i-1,:),h_iter,8,0);
           end
           
            % save status

@@ -2,9 +2,9 @@
 clear all,close all,clc
 
 debug = 0;
-debug_multipath = 0;%定义是否考虑多径
-debug_path_type = 16;%定义多径类型
-SNR = [15:5:25];
+debug_multipath = 1;%定义是否考虑多径
+debug_path_type = 18;%定义多径类型
+SNR = [25:5:35];
 
 %%参数定义
 PN_len = 255;  % PN 长度

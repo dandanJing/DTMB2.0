@@ -15,16 +15,12 @@ for kk = 1:len_temp
 end
 abs_h_temp = abs(h_temp);
 max_h = max(abs_h_temp);
-alpha = 0.33 - (count_frame-1)*0.03;
+alpha = 0.33 - (count_frame-1)*0.04;
 thresh = max_h * alpha;
 chlen = max(find(abs_h_temp >= thresh));
-if chlen < length(h_current)
-    thresh_num = length(find(abs(h_current)>0.15*max(abs(h_current))));
-    if thresh_num > 1
-        chlen = chlen + 20;
-        chlen = min(chlen,length(h_current));
-    end
-end 
+chlen = chlen + 20;
+chlen = min(chlen,length(h_current)); 
+
 channel = h_temp/count_frame;
 channel(chlen+1:end) = 0;
 if debug
