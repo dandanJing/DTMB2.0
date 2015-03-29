@@ -1,7 +1,7 @@
 clear all,close all,clc
 
 debug = 1;
-debug_multipath = 1;%定义是否考虑多径
+debug_multipath = 0;%定义是否考虑多径
 debug_path_type = 16;%定义多径类型
 SNR = [20];
 
@@ -67,7 +67,7 @@ for SNR_IN = SNR %定义输入信噪比
           Receive_data = Send_data_srrc_tx1_spn(start_pos+(1:Frame_len));
           pn_frame_temp = Receive_data(1:PN_total_len);
           pn_frame_temp(1:chan_len_spn) = pn_frame_temp(1:chan_len_spn)-last_frame_tail;
-          PN = PN_gen(i,0)*1.975;
+          PN = PN_gen(i,0);
           
           %PN拼接
           h_pn_conv = channel_pn_conv(PN,h_iter,chan_len_spn);
@@ -88,7 +88,6 @@ for SNR_IN = SNR %定义输入信噪比
           
           %TPS
           [current_tps_position current_tps_symbol]=TPS_gen(i,0);
-          current_tps_symbol = current_tps_symbol*1.975;
           tps_symbol_temp = [];
           tps_pos_scatter =  scatter_tps_position_gen(i, 0);
           for kk= tps_pos_scatter
@@ -103,7 +102,7 @@ for SNR_IN = SNR %定义输入信噪比
           frame_data_freq =  fft(frame_data_time);
           frame_data_div_current = frame_data_freq(tps_pos_scatter)./tps_symbol_temp;
           
-          if i >= 400
+          if i >= 4000
               tps_symbol_pos_total = [tps_pos_scatter frame_h_tps_delay(1,:) frame_h_tps_delay2(1,:) frame_h_tps_delay3(1,:)];
               tps_h_div_total = [frame_data_div_current frame_h_tps_delay(2,:) frame_h_tps_delay2(2,:) frame_h_tps_delay3(2,:)];
               test1 = zeros(1,FFT_len);

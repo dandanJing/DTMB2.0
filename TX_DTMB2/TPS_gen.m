@@ -24,4 +24,4 @@ elseif(find(conti_pos == scater_max))
 end
 tps_pos = [scater_pos conti_pos];
 tps_pos = sort(tps_pos);
-tps_value = (tps_value_temp+j*tps_value_temp)*1024;
+tps_value = (tps_value_temp+j*tps_value_temp)*1024*3.5*10^2;

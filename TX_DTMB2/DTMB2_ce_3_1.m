@@ -1,9 +1,9 @@
 clear all,close all,clc
 
-debug = 1;
-debug_multipath = 0;%定义是否考虑多径
+debug = 0;
+debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 16;%定义多径类型
-SNR = [25];
+SNR = [20];
 
 %%参数定义
 PN_total_len = 432; %帧头长度,前同步88，后同步89
@@ -32,7 +32,6 @@ spn_end_measure_mse_frame = sim_num-9;
 spn_h_freq_off_thresh = 0.02;
 spn_h_denoise_alpha = 1/256;
 spn_h_smooth_alpha = 1/4;
-channel_estimate_spn = zeros(length(SNR),PN_total_len);
 
 mse_pos = 1;
 for SNR_IN = SNR %定义输入信噪比
@@ -54,6 +53,8 @@ for SNR_IN = SNR %定义输入信噪比
     frame_h_tps_delay = [];
     frame_h_tps_delay2 = [];
     frame_h_tps_delay3 = [];
+    spn_h_smooth_result = zeros(1,PN_total_len);
+    channel_estimate_spn = zeros(sim_num,PN_total_len);
     for i=1:sim_num-1
           close all;
           if debug || i == sim_num-1
@@ -66,6 +67,7 @@ for SNR_IN = SNR %定义输入信噪比
           pn_frame_temp = Receive_data(1:PN_total_len);
           pn_frame_temp(1:chan_len_spn) = pn_frame_temp(1:chan_len_spn)-last_frame_tail;
           
+          PN = PN_gen(i,0);
           %%TPS
           h_pn_conv = channel_pn_conv(PN, spn_h_smooth_result, chan_len_spn);                  
           frame_data_time =  Receive_data(PN_total_len+(1:FFT_len));
@@ -75,10 +77,40 @@ for SNR_IN = SNR %定义输入信噪比
           frame_data_recover(1:chan_len_spn)=frame_data_recover(1:chan_len_spn)-pn_tail+data_tail;
           frame_data_recover_freq = fft(frame_data_recover);
           
-          channel_len_estimate_spn(mse_pos,i) = chan_len_spn;
-          frame_h_tps_delay2 = frame_h_tps_delay;
-          frame_h_tps_delay = h_frame_tps_current;
+          [current_tps_position current_tps_symbol]=TPS_gen(i,0);
+          tps_symbol_temp = [];
+          tps_pos_scatter =  scatter_tps_position_gen(i, 0);
+          for kk= tps_pos_scatter
+              tps_symbol_temp = [tps_symbol_temp current_tps_symbol(current_tps_position==kk)];
+          end
           
+          frame_data_div_current = frame_data_recover_freq(tps_pos_scatter)./tps_symbol_temp;
+          h_iter = ifft(frame_data_div_current);
+          h_iter = h_iter.* exp(1j*2*pi/(FFT_len)*(0:length(h_iter)-1)*(tps_pos_scatter(1)-1));
+          h_iter = channel_denoise2(h_iter, spn_h_denoise_alpha);
+          h_temp = zeros(1,PN_total_len);
+          len = min(PN_total_len,length(h_iter));
+          h_temp(1:len)=h_iter(1:len);
+          h_iter = h_temp;
+          if i ~= 1
+             h_iter = spn_h_smooth_alpha *h_iter+(1-spn_h_smooth_alpha)*spn_h_smooth_result;
+          end         
+          h_iter(chan_len_spn+1:end)=0;
+           if i <= 8
+              chan_len_spn = chan_len_estimate_2(channel_estimate_spn(1:i-1,:),h_iter,i-1,0);
+          else
+              chan_len_spn = chan_len_estimate_2(channel_estimate_spn(i-8:i-1,:),h_iter,8,0);
+          end
+          channel_len_estimate_spn(mse_pos,i) = chan_len_spn;
+          channel_estimate_spn(i,:) = h_iter;
+          spn_h_smooth_result = h_iter;
+          
+          if debug
+              figure;
+              plot(abs(h_iter));
+              title('TPS估计结果');
+              pause;
+          end
           %%数据干扰消除
           h_pn_conv = channel_pn_conv(PN, h_iter, chan_len_spn);
           spn_h_freq = fft(h_iter,FFT_len);                 

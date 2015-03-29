@@ -5,7 +5,7 @@ clear all,close all,clc
 debug = 0;
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 16;%定义多径类型
-SNR = [20];
+SNR = [20:5:30];
 for SNR_IN = SNR  %定义输入信噪比
 
 %%参数定义
@@ -22,7 +22,7 @@ Symbol_rate = 7.56e6; %符号速率
 Sampling_rate = Symbol_rate * Srrc_oversample;%采样速率
 QAM = 0;    %  0: 64QAM ,2:256APSK
 BitPerSym = 6;
-sim_num=100; %仿真的帧数
+sim_num=1000; %仿真的帧数
 
 load pn256_pn512.mat
 %%帧头信号
@@ -54,12 +54,12 @@ for i=1:sim_num
     
     %%TPS
     [tps_position tps_symbol]=TPS_gen(i,0);
-    modtemp(tps_position)= tps_symbol*1.975;
+    modtemp(tps_position)= tps_symbol;
     temp_t1=ifft(modtemp, FFT_len);
     data_transfer(data_start_pos:data_start_pos+FFT_len-1)=modtemp;
     data_start_pos = data_start_pos + FFT_len;
     
-    PN_temp = PN_gen(i,0)*1.975;
+    PN_temp = PN_gen(i,0);
     frm_len = Frame_len;
     data_aft_map_tx1(start_pos:start_pos+frm_len-1)=[PN_temp temp_t1];
     start_pos = start_pos+frm_len;

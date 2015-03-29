@@ -14,5 +14,5 @@ else
     frame_num_md =  mod(frame_num-1,200)+1;
 	PN = PN_rom(frame_num_md, :);
 end
-PN=PN*1024;
+PN=PN*1024*2;
 PN=PN+j*PN;
