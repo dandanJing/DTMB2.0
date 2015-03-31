@@ -1,9 +1,9 @@
 clear all,close all,clc
 
-debug = 0;
+debug = 1;
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 18;%定义多径类型
-SNR = [25:5:35];
+SNR = [25];
 
 %%参数定义
 PN_total_len = 432; %帧头长度,前同步88，后同步89
