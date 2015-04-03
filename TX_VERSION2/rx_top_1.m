@@ -1,9 +1,10 @@
 clear all,close all,clc
 
-debug = 1;
+debug = 0;
 debug_multipath = 1;%定义是否考虑多径
 debug_path_type = 18;%定义多径类型
-SNR = [25];
+SNR = [25:5:35];
+debug_TPS_mode = 2;
 
 %%参数定义
 PN_total_len = 432; %帧头长度,前同步88，后同步89
@@ -49,10 +50,7 @@ for SNR_IN = SNR %定义输入信噪比
     last_frame_tail = zeros(1,chan_len_spn);
     frame_tps_div_scatter_delay = [];
     frame_tps_div_scatter_delay2 = [];
-    frame_tps_div_scatter_delay3 = [];
-    frame_tps_div_continual_delay = [];
-    frame_tps_div_continual_delay2 = [];
-    frame_tps_div_continual_delay3 = [];
+    last_frame_tps_ifft = [];
     spn_h_smooth_result = zeros(1,PN_total_len);
     channel_estimate_spn = zeros(sim_num,PN_total_len);
     for i=1:sim_num-1
@@ -78,38 +76,42 @@ for SNR_IN = SNR %定义输入信噪比
           frame_data_recover(1:chan_len_spn-1)=frame_data_recover(1:chan_len_spn-1)-pn_tail+data_tail;
           frame_data_recover_freq = fft(frame_data_recover);  
           
-          %%TPS
-          current_tps_position = TPS_pos_gen(i,0);
+          %%TPS channel estimate
+          current_tps_position = TPS_pos_block81_gen(i,0);
           current_tps_div = frame_data_recover_freq(current_tps_position)./tps_value;
           
-          tps_temp = zeros(1,FFT_len);
-          tps_temp(current_tps_position) = current_tps_div;
-          tps_pos_scatter =  TPS_pos_gen(i,1);
-          tps_scatter_div = tps_temp(tps_pos_scatter);
-          tps_conti_pos = [1:30 FFT_len-30+1:FFT_len];
-          tps_conti_div = tps_temp(tps_conti_pos);
-          
-          if i >=4 
-              tps_pos_total = [tps_pos_scatter TPS_pos_gen(i-1,1) TPS_pos_gen(i-2,1) TPS_pos_gen(i-3,1)];
-              tps_value_total = [tps_scatter_div frame_tps_div_scatter_delay frame_tps_div_scatter_delay2 frame_tps_div_scatter_delay3];
+          if debug_TPS_mode == 1
+              h_iter = ifft(current_tps_div);
+              h_iter = h_iter.* exp(1j*2*pi/(FFT_len)*(0:length(h_iter)-1)*(current_tps_position(1)-1));
+          elseif debug_TPS_mode == 2
+              current_tps_ifft = ifft(current_tps_div);
+              current_tps_ifft = current_tps_ifft.* exp(1j*2*pi/(FFT_len)*(0:length(current_tps_ifft)-1)*(current_tps_position(1)-1));
+              last_tps_pos = TPS_pos_block81_gen(i-1,0);
+              h_iter = zeros(1,PN_total_len);
+              if i == 1
+                  last_frame_tps_ifft = current_tps_ifft;
+              end
+              h_iter(1:384)=(last_frame_tps_ifft+current_tps_ifft)/2;
+              h_iter(385:end)=(current_tps_ifft(1:432-384)-last_frame_tps_ifft(1:432-384))/...
+                  (exp(-j*2*pi*384/3888/8*(current_tps_position(1)-1))-exp(-j*2*pi*384/3888/8*(last_tps_pos(1)-1)));
+              h_iter(1:432-384)=h_iter(1:432-384)-h_iter(385:end)*(exp(-j*2*pi*384/3888/8*(current_tps_position(1)-1))+exp(-j*2*pi*384/3888/8*(last_tps_pos(1)-1)))/2;
+          elseif debug_TPS_mode == 3
+              tps_pos_total = [tps_pos_scatter TPS_pos_block81_gen(i-1,0) TPS_pos_block81_gen(i-2,0)];
+              tps_value_total = [tps_scatter_div frame_tps_div_scatter_delay frame_tps_div_scatter_delay2];
               tps_temp(tps_pos_total)=tps_value_total;
               tps_pos_total = sort(tps_pos_total);
               tps_value_total = tps_temp(tps_pos_total);
-          else
-              tps_pos_total = tps_pos_scatter;
-              tps_value_total = tps_scatter_div;
+              h_iter = ifft(tps_value_total);
+              h_iter = h_iter.* exp(1j*2*pi/(FFT_len)*(0:length(h_iter)-1)*(tps_pos_total(1)-1));
           end
           
-          %channel estimate
-          h_iter = ifft(tps_value_total);
-          h_iter = h_iter.* exp(1j*2*pi/(FFT_len)*(0:length(h_iter)-1)*(tps_pos_total(1)-1));
           h_iter = channel_denoise(h_iter, spn_h_denoise_alpha);
           h_temp = zeros(1,PN_total_len);
           len = min(PN_total_len,length(h_iter));
           h_temp(1:len)=h_iter(1:len);
           h_iter = h_temp;
           clear h_temp;
-          
+           
           %channel length
           if i <= 8
              [h_iter chan_len_spn] = chan_estimate(channel_estimate_spn(1:i-1,:),h_iter,i-1,0);
@@ -119,12 +121,12 @@ for SNR_IN = SNR %定义输入信噪比
           end
           
            % save status
-          frame_tps_div_scatter_delay3 = frame_tps_div_scatter_delay2;
-          frame_tps_div_scatter_delay2 = frame_tps_div_scatter_delay;
-          frame_tps_div_scatter_delay = tps_scatter_div;
-          frame_tps_div_continual_delay3 = frame_tps_div_continual_delay2;
-          frame_tps_div_continual_delay2 = frame_tps_div_continual_delay;
-          frame_tps_div_continual_delay = tps_conti_div;
+           if debug_TPS_mode == 3
+             frame_tps_div_scatter_delay2 = frame_tps_div_scatter_delay;
+             frame_tps_div_scatter_delay = current_tps_div;
+           elseif debug_TPS_mode == 2
+               last_frame_tps_ifft = current_tps_ifft;
+           end
           
           channel_len_estimate_spn(mse_pos,i) = chan_len_spn;
           channel_estimate_spn(i,:) = h_iter;

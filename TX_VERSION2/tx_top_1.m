@@ -41,7 +41,7 @@ for SNR_IN = SNR  %定义输入信噪比
         modtemp= modtemp1*3888*20;
 
         %%TPS
-        tps_position =TPS_pos_gen(i,0);
+        tps_position =TPS_pos_block81_gen(i,0);
         modtemp(tps_position)= tps_value;
         temp_t1=ifft(modtemp, FFT_len);
         data_transfer(data_start_pos:data_start_pos+FFT_len-1)=modtemp;
